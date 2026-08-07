@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#F6F8F6" />
+  <title>Green Garden — Costos · Acceso</title>
+  <link rel="stylesheet" href="css/variables.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/componentes.css" />
+</head>
+<body>
+
+  <div id="pantalla-carga">
+    <div class="logo-loading">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#157A50" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 20C5 12.5 9.8 5.5 20 4.5c1 10-5 15.5-14.5 15.5Z"/><path d="M8.5 17c2.2-4.3 5.4-7 9.5-8.2"/></svg>
+      Green Garden
+    </div>
+    <div class="spinner spinner-verde"></div>
+  </div>
+
+  <div class="app-wrapper" id="contenido" style="display:none;">
+    <div class="login-screen">
+
+      <div class="login-logo">
+        <div class="marca">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 20C5 12.5 9.8 5.5 20 4.5c1 10-5 15.5-14.5 15.5Z"/><path d="M8.5 17c2.2-4.3 5.4-7 9.5-8.2"/></svg>
+        </div>
+        <h1>Green Garden</h1>
+        <p>Costos, Proveedores y Rentabilidad</p>
+      </div>
+
+      <div class="card">
+        <p class="card-title">Iniciar sesión</p>
+        <div class="form-group">
+          <label class="form-label" for="email">Correo electrónico</label>
+          <input class="form-control" type="email" id="email" placeholder="usuario@greengarden.com" autocomplete="email" inputmode="email" />
+        </div>
+        <div class="form-group mb-0">
+          <label class="form-label" for="password">Contraseña</label>
+          <input class="form-control" type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div id="msg-login" class="msg msg-error"></div>
+        <div class="mt-16">
+          <button class="btn btn-primary btn-block" id="btn-login">Ingresar</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script type="module">
+    import { login, redirigirSiYaLogeado } from "./js/auth.js";
+
+    const pantallaCarga = document.getElementById("pantalla-carga");
+    const contenido = document.getElementById("contenido");
+    const btnLogin = document.getElementById("btn-login");
+    const msgLogin = document.getElementById("msg-login");
+    const inputEmail = document.getElementById("email");
+    const inputPass = document.getElementById("password");
+
+    function revelarLogin() {
+      if (revelarLogin._hecho) return;
+      revelarLogin._hecho = true;
+      pantallaCarga.style.opacity = "0";
+      setTimeout(() => { pantallaCarga.style.display = "none"; contenido.style.display = "flex"; }, 300);
+    }
+    redirigirSiYaLogeado(revelarLogin);
+    setTimeout(revelarLogin, 2500);
+
+    async function intentarLogin() {
+      const email = inputEmail.value.trim();
+      const password = inputPass.value;
+      if (!email || !password) { mostrar("Completá todos los campos."); return; }
+      btnLogin.disabled = true;
+      btnLogin.innerHTML = '<span class="spinner"></span>';
+      msgLogin.classList.remove("show");
+      try {
+        await login(email, password);
+      } catch (err) {
+        btnLogin.disabled = false;
+        btnLogin.textContent = "Ingresar";
+        const cod = err.code || "";
+        if (cod.includes("invalid-credential") || cod.includes("wrong-password") || cod.includes("user-not-found")) mostrar("Email o contraseña incorrectos.");
+        else if (cod.includes("too-many-requests")) mostrar("Demasiados intentos. Esperá unos minutos.");
+        else if (cod.includes("api-key") || cod.includes("configuration")) mostrar("Firebase sin configurar. Completá js/config/firebase.js.");
+        else mostrar(err.message || "Error al ingresar.");
+      }
+    }
+    function mostrar(txt) { msgLogin.textContent = txt; msgLogin.classList.add("show"); }
+
+    btnLogin.addEventListener("click", intentarLogin);
+    [inputEmail, inputPass].forEach((i) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") intentarLogin(); }));
+  </script>
+
+  <div class="app-version"></div>
+  <script type="module" src="./js/version.js"></script>
+</body>
+</html>

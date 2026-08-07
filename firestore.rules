@@ -1,0 +1,133 @@
+rules_version = '2';
+
+// ============================================================
+// Firestore Rules — LA barrera de seguridad real (Regla 3.6 / Sección 8)
+// La app es 100 % frontend: la validación en JS es solo UX.
+// ------------------------------------------------------------
+// Nota: en un modelo 100 % frontend, la reversión de saldos y la imputación
+// se ejecutan como transacciones DEL CLIENTE. Por eso las reglas validan
+// tipos, rangos y enums, prohíben el borrado físico e impiden editar pagos
+// anulados, pero no pueden distinguir "flujo de pagos" de una escritura
+// arbitraria de saldo. Para blindar `saldo_total_deuda_centavos` por
+// completo haría falta mover ese paso a Cloud Functions.
+// ============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function autenticado() {
+      return request.auth != null;
+    }
+    function entrante() { return request.resource.data; }
+
+    function esEnteroNoNeg(campo) {
+      return entrante()[campo] is int && entrante()[campo] >= 0;
+    }
+    function alicuotaValida(campo) {
+      return entrante()[campo] in [0, 10.5, 21, 27];
+    }
+
+    // ── usuarios ────────────────────────────────────────────
+    // Cada quien lee/escribe su propio doc de perfil (mínimo).
+    match /usuarios/{uid} {
+      allow read: if autenticado();
+      allow write: if autenticado() && request.auth.uid == uid;
+    }
+
+    // ── proveedores ─────────────────────────────────────────
+    match /proveedores/{id} {
+      allow read: if autenticado();
+      allow create: if autenticado()
+        && entrante().nombre is string
+        && entrante().condicion_fiscal in ['responsable_inscripto', 'monotributo', 'exento']
+        && esEnteroNoNeg('saldo_total_deuda_centavos')
+        && entrante().activo == true;
+      // El saldo puede ser negativo (saldo a favor); solo exigimos que sea entero.
+      allow update: if autenticado()
+        && entrante().condicion_fiscal in ['responsable_inscripto', 'monotributo', 'exento']
+        && entrante().saldo_total_deuda_centavos is int;
+      allow delete: if false; // Regla 3.7: soft delete
+    }
+
+    // ── insumos + historial_precios ─────────────────────────
+    match /insumos/{id} {
+      allow read: if autenticado();
+      allow create: if autenticado()
+        && entrante().nombre is string
+        && entrante().magnitud in ['masa', 'volumen', 'unidad']
+        && esEnteroNoNeg('costo_neto_por_unidad_base_centavos')
+        && alicuotaValida('alicuota_iva')
+        && entrante().factor_correccion is number
+        && entrante().factor_correccion > 0;
+      allow update: if autenticado()
+        && entrante().costo_neto_por_unidad_base_centavos is int
+        && entrante().costo_neto_por_unidad_base_centavos >= 0;
+      allow delete: if false;
+
+      match /historial_precios/{hid} {
+        allow read: if autenticado();
+        allow create: if autenticado()
+          && entrante().costo_nuevo_centavos is int
+          && entrante().origen in ['factura', 'manual', 'carga_inicial'];
+        allow update, delete: if false; // el historial es inmutable
+      }
+    }
+
+    // ── facturas ────────────────────────────────────────────
+    match /facturas/{id} {
+      allow read: if autenticado();
+      allow create: if autenticado()
+        && entrante().tipo_comprobante in ['A', 'B', 'C']
+        && entrante().estado in ['pendiente', 'parcial', 'pagada', 'anulada']
+        && esEnteroNoNeg('neto_gravado_centavos')
+        && esEnteroNoNeg('iva_discriminado_centavos')
+        && esEnteroNoNeg('percepciones_centavos')
+        && esEnteroNoNeg('monto_total_centavos')
+        && esEnteroNoNeg('saldo_pendiente_centavos')
+        // Cuadratura: neto + iva + percepciones == total (Sección 5.4)
+        && (entrante().neto_gravado_centavos + entrante().iva_discriminado_centavos + entrante().percepciones_centavos) == entrante().monto_total_centavos;
+      allow update: if autenticado()
+        && entrante().estado in ['pendiente', 'parcial', 'pagada', 'anulada']
+        && entrante().saldo_pendiente_centavos is int
+        && entrante().saldo_pendiente_centavos >= 0;
+      allow delete: if false;
+    }
+
+    // ── pagos ───────────────────────────────────────────────
+    match /pagos/{id} {
+      allow read: if autenticado();
+      allow create: if autenticado()
+        && entrante().estado in ['activo', 'anulado']
+        && entrante().monto_pagado_centavos is int
+        && entrante().metodo_pago in ['efectivo', 'transferencia', 'cheque', 'echeq', 'otro']
+        && entrante().modo_imputacion in ['fifo', 'manual'];
+      // Solo se permite marcar un pago activo como anulado (Regla 3.4):
+      // no se puede volver a modificar un pago ya anulado.
+      allow update: if autenticado()
+        && resource.data.estado == 'activo'
+        && entrante().monto_pagado_centavos == resource.data.monto_pagado_centavos;
+      allow delete: if false;
+    }
+
+    // ── recetas ─────────────────────────────────────────────
+    match /recetas/{id} {
+      allow read: if autenticado();
+      allow create: if autenticado()
+        && entrante().nombre is string
+        && entrante().tipo in ['plato', 'preparacion']
+        && entrante().rendimiento_cantidad is number
+        && entrante().rendimiento_cantidad > 0
+        && esEnteroNoNeg('costo_calculado_centavos')
+        && esEnteroNoNeg('precio_venta_publico_centavos');
+      allow update: if autenticado()
+        && entrante().tipo in ['plato', 'preparacion']
+        && entrante().costo_calculado_centavos is int;
+      allow delete: if false;
+    }
+
+    // Todo lo no declarado, prohibido.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
