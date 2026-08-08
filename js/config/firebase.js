@@ -20,12 +20,12 @@ import { getAuth } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-aut
 import { getFirestore } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 export const firebaseConfig = {
-  apiKey: "REEMPLAZAR_API_KEY",
-  authDomain: "REEMPLAZAR.firebaseapp.com",
-  projectId: "REEMPLAZAR_PROJECT_ID",
-  storageBucket: "REEMPLAZAR.firebasestorage.app",
-  messagingSenderId: "REEMPLAZAR_SENDER_ID",
-  appId: "REEMPLAZAR_APP_ID",
+  apiKey: "AIzaSyC8jCBEPsIGcrEaONqdJboMcJOWfJDH5ok",
+  authDomain: "green-garden-costos.firebaseapp.com",
+  projectId: "green-garden-costos",
+  storageBucket: "green-garden-costos.firebasestorage.app",
+  messagingSenderId: "1029936465560",
+  appId: "1:1029936465560:web:6acb9f31e7bf6bc4bcf2ed",
 };
 
 const app = initializeApp(firebaseConfig);
