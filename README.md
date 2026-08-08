@@ -40,7 +40,7 @@ Estas reglas viven en `js/core/` y están cubiertas por tests:
 │   ├── config/firebase.js
 │   ├── core/             ← dinero · unidades · fiscal · costeo  (lógica pura, testeable)
 │   ├── data/             ← *Repo.js (Firestore; transacciones + increment)
-│   ├── ui/               ← dashboard · proveedores · insumos · escandallos · helpers
+│   ├── ui/               ← dashboard · proveedores · insumos · escandallos(=Costos) · usuarios · helpers
 │   └── export/excel.js   ← SheetJS
 └── test/                 ← tests del núcleo (node --test)
 ```
@@ -89,7 +89,17 @@ En Windows, ver el método probado en la Sección 11 de la especificación.
 
 ---
 
+## Roles
+
+- **Gerente:** acceso total (Dashboard, Costos/rentabilidad, precios de venta, anulación de pagos, gestión de usuarios, exportación).
+- **Cargador:** carga operativa (Insumos y actualización de precios, Proveedores, facturas y pagos). No ve rentabilidad ni gestiona usuarios.
+
+Los perfiles viven en la colección `usuarios/{uid}`. Un usuario sin perfil se
+trata como Gerente (bootstrap del dueño); desde la pantalla **Usuarios** el
+Gerente crea los perfiles del resto con su rol.
+
 ## Estado
 
-Versión inicial (`v0.1.0`) con los módulos de la especificación:
-Núcleo · Insumos · Escandallos · Proveedores/Facturas/Pagos · Dashboard · Export.
+`v0.2.0` — Núcleo · Insumos (con historial de precios y gráfico) · Costos
+(recetas y rentabilidad) · Proveedores/Facturas/Pagos · Dashboard · Usuarios y
+roles · Export.

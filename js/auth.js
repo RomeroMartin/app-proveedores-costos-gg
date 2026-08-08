@@ -12,19 +12,23 @@ import {
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { ROL_POR_DEFECTO } from "./roles.js";
 
 /**
  * Datos del usuario desde Firestore (colección `usuarios/{uid}`).
- * Un usuario debe existir y estar activo para operar.
+ * Si todavía no tiene perfil cargado, se asume rol por defecto (Gerente)
+ * para no bloquear al dueño en un sistema recién iniciado. El Gerente puede
+ * luego crear los perfiles del resto del equipo con rol Cargador.
  */
 export async function obtenerDatosUsuario(uid) {
   try {
     const snap = await getDoc(doc(db, "usuarios", uid));
-    if (!snap.exists()) return null;
-    return { uid, ...snap.data() };
+    if (!snap.exists()) return { uid, activo: true, rol: ROL_POR_DEFECTO, sinPerfil: true };
+    const datos = { uid, ...snap.data() };
+    if (!datos.rol) datos.rol = ROL_POR_DEFECTO;
+    return datos;
   } catch (_e) {
-    // Si no existe la colección/usuario, tratamos como autenticado básico.
-    return { uid, activo: true };
+    return { uid, activo: true, rol: ROL_POR_DEFECTO, sinPerfil: true };
   }
 }
 

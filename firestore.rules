@@ -20,6 +20,13 @@ service cloud.firestore {
     }
     function entrante() { return request.resource.data; }
 
+    // ¿El que hace la petición es Gerente? (mira su propio perfil en `usuarios`)
+    function esGerente() {
+      return autenticado()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.rol == 'Gerente';
+    }
+
     function esEnteroNoNeg(campo) {
       return entrante()[campo] is int && entrante()[campo] >= 0;
     }
@@ -28,10 +35,15 @@ service cloud.firestore {
     }
 
     // ── usuarios ────────────────────────────────────────────
-    // Cada quien lee/escribe su propio doc de perfil (mínimo).
+    // Lectura: cualquier autenticado (la app necesita el rol al entrar).
+    // Escritura del PROPIO perfil: permitida (bootstrap del primer Gerente).
+    // Escritura de OTROS perfiles / asignación de roles: solo Gerente.
+    // Nota: el modelo confía en cuentas provisionadas por el dueño en la
+    // consola de Firebase. Para blindar la auto-asignación de rol haría falta
+    // custom claims / Cloud Functions.
     match /usuarios/{uid} {
       allow read: if autenticado();
-      allow write: if autenticado() && request.auth.uid == uid;
+      allow write: if autenticado() && (request.auth.uid == uid || esGerente());
     }
 
     // ── proveedores ─────────────────────────────────────────

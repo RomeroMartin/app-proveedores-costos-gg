@@ -2,7 +2,7 @@
 // ui/insumos.js — Pantalla de Insumos / Materia Prima (Sección 7.3)
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, graficoLineas } from "./helpers.js";
 import { formatearCentavos, formatearPorcentaje, pesosACentavos } from "../core/dinero.js";
 import { MAGNITUDES, UNIDADES_POR_MAGNITUD, unidadBaseDe, convertirAUnidadBase, costoNetoPorUnidadBase } from "../core/unidades.js";
 import { ALICUOTAS_IVA } from "../core/fiscal.js";
@@ -71,7 +71,9 @@ async function pintarLista(cont) {
         el("td", {},
           el("span", { class: `badge ${desact ? "badge-warn" : "badge-muted"}` }, fechaCorta(i.fecha_ultimo_precio)),
         ),
-        el("td", { class: "text-right" },
+        el("td", { class: "text-right", style: "white-space:nowrap" },
+          el("button", { class: "btn btn-xs btn-secondary", onClick: () => verHistorial(i), title: "Evolución de precio" }, "📈"),
+          " ",
           el("button", { class: "btn btn-xs btn-secondary", onClick: () => actualizarPrecioRapido(i) }, "Precio"),
           " ",
           el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirFormInsumo(i) }, "Editar"),
@@ -248,4 +250,48 @@ function actualizarPrecioRapido(insumo) {
         } },
     ],
   });
+}
+
+// ── Historial / evolución de precios ──────────────────────────
+const LABEL_ORIGEN = { factura: "Factura", manual: "Manual", carga_inicial: "Carga inicial" };
+
+async function verHistorial(insumo) {
+  const cont = el("div", { class: "cargando" }, el("span", { class: "spinner spinner-verde" }), "Cargando historial…");
+  const { body } = abrirModal({ titulo: `Evolución de precio — ${insumo.nombre}`, contenido: cont, ancho: "lg", botones: [{ texto: "Cerrar", clase: "btn-secondary" }] });
+
+  let hist = [];
+  try { hist = await insumosRepo.historial(insumo.id); } catch (_e) {}
+  limpiar(body);
+
+  if (!hist.length) {
+    body.appendChild(el("div", { class: "empty-state" }, el("p", {}, "Todavía no hay cambios de precio registrados.")));
+    return;
+  }
+
+  // Gráfico (costo por unidad base a lo largo del tiempo)
+  const puntos = hist.map((h) => ({ x: h.fecha, y: Number(h.costo_nuevo_centavos) || 0 }));
+  const chart = graficoLineas(puntos, {
+    formatoY: (v) => formatearCentavos(v, { simbolo: false }),
+    formatoX: (x) => fechaCorta(x),
+  });
+  body.appendChild(el("div", { class: "card", style: "box-shadow:none" },
+    el("p", { class: "card-title" }, `Costo por ${insumo.unidad_base} (neto)`),
+    chart,
+  ));
+
+  // Tabla de cambios (más recientes primero)
+  const filas = [...hist].reverse().map((h) => {
+    const v = Number(h.variacion_porcentual) || 0;
+    const cls = v > 0 ? "badge-danger" : (v < 0 ? "badge-ok" : "badge-muted");
+    return el("tr", {},
+      el("td", {}, fechaCorta(h.fecha)),
+      el("td", {}, el("span", { class: "badge badge-muted" }, LABEL_ORIGEN[h.origen] || h.origen)),
+      el("td", { class: "num" }, formatearCentavos(h.costo_nuevo_centavos)),
+      el("td", { class: "num" }, el("span", { class: "badge " + cls }, `${v > 0 ? "+" : ""}${v.toFixed(1)}%`)),
+    );
+  });
+  body.appendChild(el("div", { class: "tabla-wrap", style: "margin-top:12px" },
+    el("table", { class: "tabla" },
+      el("thead", {}, el("tr", {}, el("th", {}, "Fecha"), el("th", {}, "Origen"), el("th", { class: "num" }, `Costo/${insumo.unidad_base}`), el("th", { class: "num" }, "Variación"))),
+      el("tbody", {}, ...filas))));
 }

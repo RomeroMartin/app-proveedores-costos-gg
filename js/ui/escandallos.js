@@ -24,8 +24,8 @@ export async function render(main) {
   main.innerHTML = "";
   main.appendChild(el("div", { class: "page-header" },
     el("div", {},
-      el("div", { class: "page-title" }, "Escandallos"),
-      el("div", { class: "page-subtitle" }, "Recetas de platos y preparaciones, con rentabilidad en vivo."),
+      el("div", { class: "page-title" }, "Costos"),
+      el("div", { class: "page-subtitle" }, "Recetas de platos y preparaciones, con costo y rentabilidad en vivo."),
     ),
     el("div", { class: "flex gap-8" },
       el("button", { class: "btn btn-secondary", onClick: () => abrirEditor(null, "preparacion") }, "Nueva preparación"),

@@ -6,6 +6,7 @@
 import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico } from "./helpers.js";
 import { formatearCentavos, pesosACentavos } from "../core/dinero.js";
 import { CONDICIONES_FISCALES, TIPOS_COMPROBANTE, ALICUOTAS_IVA, desglosarFactura, validarCuadraturaFactura } from "../core/fiscal.js";
+import { puede } from "../roles.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
 import * as facturasRepo from "../data/facturasRepo.js";
 import * as pagosRepo from "../data/pagosRepo.js";
@@ -155,7 +156,7 @@ async function renderFicha(body, prov) {
         el("td", { class: "num" }, formatearCentavos(pg.monto_pagado_centavos)),
         el("td", {}, el("span", { class: "badge " + (pg.estado === "anulado" ? "badge-muted" : "badge-ok") }, pg.estado)),
         el("td", { class: "text-right" },
-          pg.estado === "activo" && pg.monto_pagado_centavos > 0
+          pg.estado === "activo" && pg.monto_pagado_centavos > 0 && puede(store.getRol(), "anular_pago")
             ? el("button", { class: "btn btn-xs btn-danger", onClick: () => anular(pg, prov, body) }, "Anular")
             : "",
         ),

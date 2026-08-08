@@ -20,7 +20,13 @@ const state = {
   insumosById: {},
   recetasById: {},
   cargado: false,
+  usuario: null, // { uid, nombre, email, rol, activo }
 };
+
+/** Guarda el usuario autenticado (con su rol) para el gating de la UI. */
+export function setUsuario(u) { state.usuario = u; }
+export function getUsuario() { return state.usuario; }
+export function getRol() { return state.usuario ? state.usuario.rol : null; }
 
 function reindexar() {
   state.proveedoresById = Object.fromEntries(state.proveedores.map((p) => [p.id, p]));
