@@ -5,36 +5,55 @@
 // seguridad son las firestore.rules (Regla 3.6).
 // ============================================================
 
-import { auth, db } from "./config/firebase.js";
+import { auth, db, EMAIL_DUENO } from "./config/firebase.js";
 import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-import { ROL_POR_DEFECTO } from "./roles.js";
+import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { ROLES } from "./roles.js";
+
+/** ¿El email es el del dueño? (comparación robusta, sin mayúsculas/espacios) */
+export function esEmailDueno(email) {
+  return !!email && email.trim().toLowerCase() === EMAIL_DUENO.trim().toLowerCase();
+}
 
 /**
  * Datos del usuario desde Firestore (colección `usuarios/{uid}`).
- * Si todavía no tiene perfil cargado, se asume rol por defecto (Gerente)
- * para no bloquear al dueño en un sistema recién iniciado. El Gerente puede
- * luego crear los perfiles del resto del equipo con rol Cargador.
+ * Si todavía no tiene perfil: al DUEÑO se lo trata como Gerente (para poder
+ * arrancar), al resto como Cargador (mínimo privilegio). Las firestore.rules
+ * son la barrera real: sin perfil de Gerente no se puede gestionar nada.
  */
-export async function obtenerDatosUsuario(uid) {
+export async function obtenerDatosUsuario(uid, email) {
+  const rolSinPerfil = esEmailDueno(email) ? ROLES.GERENTE : ROLES.CARGADOR;
   try {
     const snap = await getDoc(doc(db, "usuarios", uid));
-    if (!snap.exists()) return { uid, activo: true, rol: ROL_POR_DEFECTO, sinPerfil: true };
+    if (!snap.exists()) return { uid, email: email || "", activo: true, rol: rolSinPerfil, sinPerfil: true };
     const datos = { uid, ...snap.data() };
-    if (!datos.rol) datos.rol = ROL_POR_DEFECTO;
+    if (!datos.rol) datos.rol = rolSinPerfil;
     return datos;
   } catch (_e) {
-    return { uid, activo: true, rol: ROL_POR_DEFECTO, sinPerfil: true };
+    return { uid, email: email || "", activo: true, rol: rolSinPerfil, sinPerfil: true };
   }
 }
 
 export async function login(email, password) {
   const cred = await signInWithEmailAndPassword(auth, email, password);
-  const datos = await obtenerDatosUsuario(cred.user.uid);
+  // Bootstrap del dueño sin consola: la primera vez (o si perdió su perfil)
+  // se crea a sí mismo como Gerente activo. Las reglas solo lo permiten para
+  // el email del dueño; nadie más puede escribir su propio perfil.
+  if (esEmailDueno(cred.user.email)) {
+    const ref = doc(db, "usuarios", cred.user.uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        nombre: "Gerente", email: cred.user.email, rol: ROLES.GERENTE, activo: true,
+        creado_en: serverTimestamp(), modificado_en: serverTimestamp(),
+      });
+    }
+  }
+  const datos = await obtenerDatosUsuario(cred.user.uid, cred.user.email);
   if (datos && datos.activo === false) {
     await signOut(auth);
     throw new Error("Tu cuenta está desactivada. Consultá al administrador.");
@@ -58,7 +77,7 @@ export function protegerApp() {
       window.location.href = "./index.html";
       return;
     }
-    const datos = await obtenerDatosUsuario(user.uid);
+    const datos = await obtenerDatosUsuario(user.uid, user.email);
     if (datos && datos.activo === false) {
       await logout();
       return;

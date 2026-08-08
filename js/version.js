@@ -3,7 +3,7 @@
 // El sello se auto-estiliza (no depende del CSS del proyecto).
 // ============================================================
 
-export const APP_VERSION = "0.2.0";
+export const APP_VERSION = "0.3.0";
 
 function aplicarVersion() {
   let sellos = document.querySelectorAll(".app-version");
