@@ -1,11 +1,32 @@
 // ============================================================
 // ui/usuarios.js — Gestión de usuarios y roles (solo Gerente)
+// ------------------------------------------------------------
+// Alta de usuarios DESDE la app, sin pasar por la consola de Firebase ni
+// copiar UIDs a mano: se usa una SEGUNDA instancia de Firebase para crear
+// la cuenta de Authentication sin desloguear al Gerente. El UID sale solo
+// de la cuenta creada (cred.user.uid) y con eso se guarda su perfil.
 // ============================================================
 
 import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico } from "./helpers.js";
 import { ROLES, badgeRol } from "../roles.js";
 import * as usuariosRepo from "../data/usuariosRepo.js";
 import * as store from "../store.js";
+import { firebaseConfig } from "../config/firebase.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, createUserWithEmailAndPassword, signOut as signOutSec } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+// Segunda instancia de Firebase: crea la cuenta SIN tocar la sesión del
+// Gerente (la instancia principal). Se cierra apenas termina.
+const appSec = initializeApp(firebaseConfig, "secondary-usuarios");
+const authSec = getAuth(appSec);
+
+function mensajeAuth(err) {
+  const cod = (err && err.code) || "";
+  if (cod.includes("email-already-in-use")) return "Ese email ya tiene una cuenta.";
+  if (cod.includes("invalid-email")) return "El email no es válido.";
+  if (cod.includes("weak-password")) return "La contraseña es muy débil (mínimo 6).";
+  return (err && err.message) || "No se pudo crear el usuario.";
+}
 
 export async function render(main) {
   main.innerHTML = "";
@@ -31,11 +52,12 @@ async function pintar(cont) {
   const tengoPerfil = usuarios.some((u) => u.uid === (yo && yo.uid));
 
   // Aviso de bootstrap: si el dueño todavía no tiene perfil propio.
+  // (Normalmente ya no aparece: el dueño se autoconfigura al iniciar sesión.)
   if (yo && !tengoPerfil) {
     cont.appendChild(el("div", { class: "card", style: "border-color:var(--warn-txt)" },
       el("p", { class: "card-title" }, "Configurá tu perfil"),
       el("p", { class: "text-muted", style: "font-size:.88rem;margin-bottom:12px" },
-        "Todavía no tenés un perfil guardado, así que la app te trata como Gerente por defecto. Creá tu perfil de Gerente para poder asignar roles al resto del equipo."),
+        "Todavía no tenés un perfil guardado. Creá tu perfil de Gerente para poder asignar roles al resto del equipo."),
       el("button", { class: "btn btn-primary btn-sm", onClick: async () => {
           try {
             await usuariosRepo.guardar(yo.uid, { nombre: yo.nombre || yo.email || "Gerente", email: yo.email || "", rol: ROLES.GERENTE, activo: true });
@@ -46,13 +68,13 @@ async function pintar(cont) {
     ));
   }
 
-  // Instrucción para agregar compañeros.
+  // Cómo agregar compañeros (ya no hace falta la consola de Firebase).
   cont.appendChild(el("div", { class: "card", style: "background:var(--bg-secondary);box-shadow:none" },
     el("p", { class: "card-title" }, "Cómo agregar a alguien del equipo"),
     el("ol", { style: "font-size:.85rem;color:var(--texto-2);padding-left:18px;line-height:1.7" },
-      el("li", {}, "En la consola de Firebase → Authentication → Users, creá el usuario (email + contraseña) y copiá su UID."),
-      el("li", {}, "Acá tocá “Nuevo usuario”, pegá ese UID, poné el nombre y elegí el rol."),
-      el("li", {}, "Listo: esa persona entra con su email y ve solo lo que su rol permite."),
+      el("li", {}, "Tocá “Nuevo usuario” y cargá nombre, email, una contraseña temporal y el rol."),
+      el("li", {}, "La cuenta se crea sola desde acá: no hay que entrar a Firebase ni copiar ningún UID."),
+      el("li", {}, "Pasale a esa persona su email y la contraseña temporal. Entra y ve solo lo que su rol permite."),
     ),
   ));
 
@@ -77,9 +99,9 @@ async function pintar(cont) {
 
 function abrirForm(usuario = null) {
   const editar = !!usuario;
-  const inpUid = el("input", { class: "form-control mono", value: usuario ? usuario.uid : "", placeholder: "UID de Firebase Authentication", disabled: editar ? "disabled" : null });
   const inpNombre = el("input", { class: "form-control", value: usuario ? (usuario.nombre || "") : "", placeholder: "Nombre y apellido" });
-  const inpEmail = el("input", { class: "form-control", value: usuario ? (usuario.email || "") : "", placeholder: "email@greengarden.com" });
+  const inpEmail = el("input", { class: "form-control", type: "email", value: usuario ? (usuario.email || "") : "", placeholder: "email@greengarden.com", disabled: editar ? "disabled" : null });
+  const inpPass = el("input", { class: "form-control", type: "password", placeholder: "Contraseña temporal (mínimo 6)" });
   const selRol = el("select", { class: "form-control" },
     ...Object.values(ROLES).map((r) => el("option", { value: r, selected: usuario && usuario.rol === r ? "selected" : null }, r)));
   const selActivo = el("select", { class: "form-control" },
@@ -87,27 +109,53 @@ function abrirForm(usuario = null) {
     el("option", { value: "false", selected: usuario && usuario.activo === false ? "selected" : null }, "Inactivo"));
 
   const form = el("div", {},
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "UID"), inpUid,
-      el("div", { class: "form-hint" }, "Firebase console → Authentication → Users → copiar UID.")),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Email"), inpEmail),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Email"), inpEmail,
+      editar ? el("div", { class: "form-hint" }, "El email de acceso no se cambia desde acá.") : null),
+    editar ? null : el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Contraseña temporal"), inpPass,
+      el("div", { class: "form-hint" }, "La usa para entrar la primera vez; después puede cambiarla.")),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rol"), selRol),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Estado"), selActivo),
     ),
   );
 
+  let enCurso = false;
   abrirModal({
     titulo: editar ? "Editar usuario" : "Nuevo usuario", contenido: form,
     botones: [
       { texto: "Cancelar", clase: "btn-secondary" },
       { texto: editar ? "Guardar" : "Crear", clase: "btn-primary", onClick: async (cerrar) => {
-          const uid = inpUid.value.trim();
-          if (!uid) return toast("Falta el UID.", "error");
+          if (enCurso) return;
+          const nombre = inpNombre.value.trim();
+          const email = inpEmail.value.trim();
+          const rol = selRol.value;
+          const activo = selActivo.value === "true";
+          if (!nombre) return toast("Falta el nombre.", "error");
+
+          if (editar) {
+            try {
+              await usuariosRepo.guardar(usuario.uid, { nombre, email: usuario.email || email, rol, activo });
+              cerrar(); toast("Usuario guardado."); await render($(".main"));
+            } catch (e) { toast(e.message || "Error al guardar.", "error"); }
+            return;
+          }
+
+          // Alta nueva: crear la cuenta de Authentication con la 2da instancia.
+          const password = inpPass.value;
+          if (!email) return toast("Falta el email.", "error");
+          if (!password || password.length < 6) return toast("La contraseña necesita al menos 6 caracteres.", "error");
+          enCurso = true;
           try {
-            await usuariosRepo.guardar(uid, { nombre: inpNombre.value, email: inpEmail.value, rol: selRol.value, activo: selActivo.value === "true" });
-            cerrar(); toast("Usuario guardado."); await render($(".main"));
-          } catch (e) { toast(e.message || "Error. ¿Tenés rol Gerente con perfil creado?", "error"); }
+            const cred = await createUserWithEmailAndPassword(authSec, email, password);
+            // El UID sale de la cuenta recién creada: nunca se copia a mano.
+            await usuariosRepo.guardar(cred.user.uid, { nombre, email, rol, activo });
+            await signOutSec(authSec);
+            cerrar(); toast(`Usuario creado como ${rol}.`); await render($(".main"));
+          } catch (e) {
+            enCurso = false;
+            toast(mensajeAuth(e), "error");
+          }
         } },
     ],
   });

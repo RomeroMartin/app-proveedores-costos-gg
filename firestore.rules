@@ -34,16 +34,34 @@ service cloud.firestore {
       return entrante()[campo] in [0, 10.5, 21, 27];
     }
 
+    // ── DUEÑO (ancla de bootstrap) ──────────────────────────
+    // Único email que puede crearse/restaurarse a sí mismo como Gerente
+    // activo, sin depender de otro Gerente ni de la consola de Firebase.
+    // No habilita nada más: solo su propio perfil.
+    // ⚠️ Si cambia, actualizar también EMAIL_DUENO en js/config/firebase.js.
+    function esDueno() {
+      return autenticado()
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() == 'martingreengaren@gmail.com';
+    }
+    function bootstrapDueno(uid) {
+      return esDueno()
+        && request.auth.uid == uid
+        && entrante().rol == 'Gerente'
+        && entrante().activo == true;
+    }
+
     // ── usuarios ────────────────────────────────────────────
     // Lectura: cualquier autenticado (la app necesita el rol al entrar).
-    // Escritura del PROPIO perfil: permitida (bootstrap del primer Gerente).
-    // Escritura de OTROS perfiles / asignación de roles: solo Gerente.
-    // Nota: el modelo confía en cuentas provisionadas por el dueño en la
-    // consola de Firebase. Para blindar la auto-asignación de rol haría falta
-    // custom claims / Cloud Functions.
+    // Crear/editar perfiles: SOLO un Gerente ya existente.
+    // Excepción de arranque: el DUEÑO puede crear/restaurar SU PROPIO perfil
+    // como Gerente activo (bootstrap sin consola). NADIE más puede escribir
+    // su propio perfil, así que no hay auto-ascenso a Gerente por consola.
     match /usuarios/{uid} {
-      allow read: if autenticado();
-      allow write: if autenticado() && (request.auth.uid == uid || esGerente());
+      allow read:   if autenticado();
+      allow create: if esGerente() || bootstrapDueno(uid);
+      allow update: if esGerente() || bootstrapDueno(uid);
+      allow delete: if false; // baja lógica con activo=false, nunca borrado físico
     }
 
     // ── proveedores ─────────────────────────────────────────
