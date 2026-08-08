@@ -18,13 +18,19 @@ import { pendientesFIFO } from "./facturasRepo.js";
 const COL = "pagos";
 
 /** Historial de pagos de un proveedor, más recientes primero. */
+// Solo igualdad + orden en memoria: evita índices compuestos (ver facturasRepo).
 export async function listarPorProveedor(proveedorId) {
   const snap = await getDocs(query(
     collection(db, COL),
     where("proveedor_id", "==", proveedorId),
-    orderBy("fecha_pago", "desc"),
   ));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  const arr = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  arr.sort((a, b) => {
+    const fa = a.fecha_pago && a.fecha_pago.toMillis ? a.fecha_pago.toMillis() : 0;
+    const fb = b.fecha_pago && b.fecha_pago.toMillis ? b.fecha_pago.toMillis() : 0;
+    return fb - fa;
+  });
+  return arr;
 }
 
 function estadoPorSaldo(saldo, total) {
