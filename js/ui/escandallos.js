@@ -28,7 +28,8 @@ export async function render(main) {
       el("div", { class: "page-subtitle" }, "Recetas de platos y preparaciones, con costo y rentabilidad en vivo."),
     ),
     el("div", { class: "flex gap-8" },
-      el("button", { class: "btn btn-secondary", onClick: () => abrirEditor(null, "preparacion") }, "Nueva preparación"),
+      el("button", { class: "btn btn-secondary", style: "color:var(--verde);border-color:var(--verde-suave);font-weight:600;", onClick: () => abrirEditor(null, "preparacion") },
+        el("span", { html: ico("mas", 16) }), "Nueva preparación"),
       el("button", { class: "btn btn-primary", onClick: () => abrirEditor(null, "plato") }, el("span", { html: ico("mas", 16) }), "Nuevo plato"),
     ),
   ));
@@ -48,6 +49,32 @@ async function pintar(cont) {
 
   cont.appendChild(seccion("Platos (se venden)", platos, true));
   cont.appendChild(seccion("Preparaciones (uso interno)", preps, false));
+}
+
+// Recetas activas que usan a `id` como ingrediente (sub-receta).
+function recetasQueUsan(id) {
+  const { recetas } = store.get();
+  return recetas.filter((r) => r.id !== id
+    && (r.ingredientes || []).some((ing) => ing.tipo === "receta" && ing.ref_id === id));
+}
+
+// Elimina (baja lógica) una receta/preparación, pidiendo confirmación.
+async function eliminarReceta(r) {
+  const usada = recetasQueUsan(r.id);
+  let mensaje = `Se va a eliminar la receta "${r.nombre}". ¿Estás seguro?`;
+  if (usada.length) {
+    mensaje = `"${r.nombre}" se usa como ingrediente en: ${usada.map((x) => x.nombre).join(", ")}. `
+      + "Si la eliminás, el costo de esas recetas va a quedar incompleto. ¿Eliminar igual?";
+  }
+  const ok = await confirmar({ titulo: "Eliminar receta", mensaje, textoOk: "Eliminar", claseOk: "btn-danger" });
+  if (!ok) return;
+  try {
+    await recetasRepo.desactivar(r.id);
+    toast("Receta eliminada.");
+    await render($(".main"));
+  } catch (e) {
+    toast(e.message || "No se pudo eliminar la receta.", "error");
+  }
 }
 
 function seccion(titulo, lista, esPlato) {
@@ -79,10 +106,13 @@ function seccion(titulo, lista, esPlato) {
       el("td", {}, el("div", { class: "celda-principal" }, r.nombre), el("div", { class: "celda-sub" }, r.codigo || "")),
       el("td", { class: "num" }, costo == null ? el("span", { class: "badge badge-danger" }, "revisar") : formatearCentavos(costo)),
       ...rentCols,
-      el("td", { class: "text-right" },
+      el("td", { class: "text-right", style: "white-space:nowrap" },
         el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirEditor(r, r.tipo) }, "Editar"),
         " ",
         el("button", { class: "btn btn-xs btn-secondary", onClick: () => imprimirFicha(r) }, "Ficha"),
+        " ",
+        el("button", { class: "btn btn-xs btn-danger", title: "Eliminar", "aria-label": "Eliminar receta", onClick: () => eliminarReceta(r) },
+          el("span", { html: ico("basura", 15) })),
       ),
     );
   });
