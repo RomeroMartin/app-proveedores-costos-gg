@@ -6,34 +6,42 @@
 // Este módulo NO conoce Firebase ni el DOM: recibe los datos ya cargados.
 // ============================================================
 
-import { recuperaCreditoFiscal } from "./fiscal.js";
-
 /** Profundidad máxima de anidamiento de sub-recetas (Sección 5.6). */
 export const MAX_PROFUNDIDAD_RECETA = 4;
 
 /**
  * Costo REAL por unidad base útil de un insumo, en centavos.
- * Contempla crédito fiscal (según comprobante) y factor de corrección.
  *
- * - Si el comprobante recupera IVA → el costo es el NETO puro.
- * - Si no → el IVA es costo, así que se suma al neto.
- * - El factor de corrección encarece el gramo útil: costo / factor.
+ * ⚠️ POLÍTICA DE COSTEO (decisión de la administración del restaurante,
+ *    2026-08): el costo se calcula por el PRECIO FINAL pagado al proveedor,
+ *    con IVA INCLUIDO. NO se descuenta el IVA como crédito fiscal, aunque el
+ *    comprobante sea Factura A de un Responsable Inscripto.
+ *
+ *    Antes: la Factura A costeaba por el NETO (IVA = crédito fiscal). Ese
+ *    criterio quedó DESACTIVADO a pedido del restaurante. Para volver a él,
+ *    reponer la rama con recuperaCreditoFiscal() (ver git / core/fiscal.js).
+ *
+ *    Nota: las FACTURAS siguen guardando el desglose neto/IVA/total (realidad
+ *    fiscal para AFIP). Esto solo cambia cómo se COSTEAN los insumos/recetas.
+ *
+ * - costo = neto * (1 + alícuota_iva/100)   → precio final con IVA.
+ * - el factor de corrección encarece el gramo útil: costo / factor.
+ *
+ * Los parámetros `proveedor` y `tipoComprobante` se conservan por
+ * compatibilidad de firma, pero YA NO afectan el costo.
  *
  * @param {object} insumo
  * @param {number} insumo.costo_neto_por_unidad_base_centavos
  * @param {number} insumo.alicuota_iva
  * @param {number} [insumo.factor_correccion=1]
- * @param {object} proveedor  con `condicion_fiscal`
- * @param {string} tipoComprobante  "A" | "B" | "C"
+ * @param {object} [_proveedor]        (ignorado) se mantiene por compatibilidad
+ * @param {string} [_tipoComprobante]  (ignorado) se mantiene por compatibilidad
  * @returns {number} centavos por unidad base útil (puede ser fraccionario)
  */
-export function costoRealPorUnidadBase(insumo, proveedor, tipoComprobante) {
-  const recuperaIVA = recuperaCreditoFiscal(tipoComprobante, proveedor && proveedor.condicion_fiscal);
-
+export function costoRealPorUnidadBase(insumo, _proveedor, _tipoComprobante) {
   const neto = Number(insumo.costo_neto_por_unidad_base_centavos) || 0;
-  const base = recuperaIVA
-    ? neto
-    : neto * (1 + (Number(insumo.alicuota_iva) || 0) / 100);
+  // Precio final: el IVA es costo (no crédito fiscal), siempre se suma.
+  const base = neto * (1 + (Number(insumo.alicuota_iva) || 0) / 100);
 
   const factor = Number(insumo.factor_correccion) || 1;
   return base / factor;

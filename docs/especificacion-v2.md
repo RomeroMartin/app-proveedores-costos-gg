@@ -77,6 +77,17 @@ La presentación de compra existe **solo para la UI y la conversión**. La lógi
 
 ### 3.2. El escandallo vive 100 % en NETO (sin IVA)
 
+> ⚠️ **ACTUALIZACIÓN 2026-08 — Costeo por PRECIO FINAL (con IVA).**
+> Por decisión de la administración del restaurante, el costeo **ya NO
+> descuenta el IVA como crédito fiscal**: los insumos y recetas se costean por
+> el **precio final pagado al proveedor, con IVA incluido**, sea Factura A, B
+> o C. En la práctica `costoRealPorUnidadBase` siempre hace
+> `neto * (1 + alícuota/100)`. Las **facturas** siguen guardando el desglose
+> neto/IVA/total (realidad fiscal para AFIP); esto solo cambia el **costeo**.
+> El texto original de esta sección se conserva como referencia histórica del
+> criterio anterior (por si se quisiera volver a él). Ver `core/costeo.js` y
+> `CONTEXTO-COSTEO.md`.
+
 Green Garden es **Responsable Inscripto**, por lo tanto el IVA de compras es **crédito fiscal recuperable, no es costo**.
 
 * **Costo de insumos → NETO.**

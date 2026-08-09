@@ -150,7 +150,7 @@ function exportarRent(platos) {
       const r = rentabilidad(p, costo);
       return {
         Codigo: p.codigo || "", Plato: p.nombre,
-        "Costo neto ($)": costo / 100,
+        "Costo c/IVA ($)": costo / 100,
         "Precio neto ($)": Math.round(r.precioNetoCentavos) / 100,
         "Precio carta ($)": (p.precio_venta_publico_centavos || 0) / 100,
         "Food cost %": Number(r.foodCostPct.toFixed(1)),

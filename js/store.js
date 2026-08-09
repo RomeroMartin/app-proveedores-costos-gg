@@ -2,9 +2,12 @@
 // store.js — Estado en memoria de la app (Sección 4.2)
 // ------------------------------------------------------------
 // Carga los datos con getDocs (sin onSnapshot) y los cachea. La UI pide
-// refrescos manuales. Arma el contexto de costeo: para cada insumo resuelve
-// el proveedor habitual y el tipo de comprobante típico (A si RI, C si no),
-// para que el crédito fiscal se aplique correctamente (Regla 3.2).
+// refrescos manuales. Arma el contexto de costeo (proveedor + tipo de
+// comprobante) de cada insumo.
+// NOTA: por decisión de la administración (2026-08) el costo se calcula por
+// el PRECIO FINAL con IVA incluido, así que el tipo de comprobante ya NO
+// afecta el costo (ver core/costeo.js → costoRealPorUnidadBase). El contexto
+// se mantiene por compatibilidad y para posibles usos futuros.
 // ============================================================
 
 import * as proveedoresRepo from "./data/proveedoresRepo.js";

@@ -2,7 +2,7 @@
 // ui/escandallos.js — Recetas / Escandallos y rentabilidad (Sección 7.4)
 // ------------------------------------------------------------
 // Regla de UI 6.3: nunca un porcentaje suelto. Se muestran siempre los tres
-// números juntos y etiquetados: costo neto, precio neto, food cost %.
+// números juntos y etiquetados: costo (con IVA), precio neto, food cost %.
 // ============================================================
 
 import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, fechaCorta } from "./helpers.js";
@@ -89,7 +89,7 @@ function seccion(titulo, lista, esPlato) {
   tabla.appendChild(el("table", { class: "tabla" },
     el("thead", {}, el("tr", {},
       el("th", {}, "Receta"),
-      el("th", { class: "num" }, "Costo neto"),
+      el("th", { class: "num" }, "Costo (c/IVA)"),
       esPlato ? el("th", { class: "num" }, "Precio carta") : el("th", { class: "num" }, "Rinde"),
       esPlato ? el("th", { class: "num" }, "Food cost") : el("th", { class: "num" }, "Costo / u."),
       el("th", { class: "text-right" }, "Acciones"),
@@ -179,7 +179,7 @@ function abrirEditor(receta, tipo) {
       const rent = rentabilidad({ precio_venta_publico_centavos: precioPub, alicuota_venta: Number(selAliVenta.value) }, costo);
       const cls = claseFoodCost(rent.foodCostPct);
       panelRent.appendChild(el("div", { class: "rent-grid" },
-        tile("Costo neto", formatearCentavos(costo)),
+        tile("Costo (c/IVA)", formatearCentavos(costo)),
         tile("Precio neto", formatearCentavos(Math.round(rent.precioNetoCentavos))),
         tile("Food cost", precioPub > 0 ? formatearPorcentaje(rent.foodCostPct, 1) : "—", cls),
       ));
@@ -201,7 +201,7 @@ function abrirEditor(receta, tipo) {
     } else {
       const rend = Number(inpRendCant.value) || 1;
       panelRent.appendChild(el("div", { class: "rent-grid" },
-        tile("Costo total", formatearCentavos(costo)),
+        tile("Costo total (c/IVA)", formatearCentavos(costo)),
         tile("Rinde", `${rend} ${inpRendUnidad.value}`),
         tile("Costo / u.", formatearCentavos(Math.round(costo / rend))),
       ));
@@ -285,7 +285,7 @@ function imprimirFicha(receta) {
   if (receta.tipo === "plato") {
     const rent = rentabilidad(receta, costo);
     extra = el("div", { class: "rent-grid", style: "margin-top:16px" },
-      tile("Costo neto", formatearCentavos(costo)),
+      tile("Costo (c/IVA)", formatearCentavos(costo)),
       tile("Precio neto", formatearCentavos(Math.round(rent.precioNetoCentavos))),
       tile("Food cost", formatearPorcentaje(rent.foodCostPct, 1)),
     );

@@ -12,20 +12,25 @@ import {
 const provRI = { condicion_fiscal: "responsable_inscripto" };
 const provMono = { condicion_fiscal: "monotributo" };
 
-test("costoReal: Factura A + RI usa NETO puro (recupera IVA)", () => {
-  const insumo = { costo_neto_por_unidad_base_centavos: 680, alicuota_iva: 21, factor_correccion: 1 };
-  assert.equal(costoRealPorUnidadBase(insumo, provRI, "A"), 680);
+test("costoReal: SIEMPRE suma el IVA (precio final pagado al proveedor)", () => {
+  // Política nueva: el IVA es costo, no crédito fiscal. 1000 * 1.21 = 1210
+  const insumo = { costo_neto_por_unidad_base_centavos: 1000, alicuota_iva: 21, factor_correccion: 1 };
+  assert.equal(Math.round(costoRealPorUnidadBase(insumo, provRI, "A")), 1210);
 });
 
-test("costoReal: Factura C (monotributo) suma el IVA como costo", () => {
+test("costoReal: el tipo de comprobante ya NO cambia el costo", () => {
+  // Factura A + RI y Factura C dan lo mismo: ambos incluyen IVA.
   const insumo = { costo_neto_por_unidad_base_centavos: 1000, alicuota_iva: 21, factor_correccion: 1 };
-  // No recupera IVA → 1000 * 1.21 = 1210
-  assert.equal(costoRealPorUnidadBase(insumo, provMono, "C"), 1210);
+  assert.equal(
+    Math.round(costoRealPorUnidadBase(insumo, provRI, "A")),
+    Math.round(costoRealPorUnidadBase(insumo, provMono, "C")),
+  );
+  assert.equal(Math.round(costoRealPorUnidadBase(insumo, provMono, "C")), 1210);
 });
 
 test("costoReal: factor de corrección encarece el gramo útil", () => {
-  const insumo = { costo_neto_por_unidad_base_centavos: 780, alicuota_iva: 21, factor_correccion: 0.78 };
-  // 780 / 0.78 = 1000
+  // Con IVA 0 se aísla el efecto del factor: 780 / 0.78 = 1000
+  const insumo = { costo_neto_por_unidad_base_centavos: 780, alicuota_iva: 0, factor_correccion: 0.78 };
   assert.equal(costoRealPorUnidadBase(insumo, provRI, "A"), 1000);
 });
 
@@ -37,15 +42,16 @@ test("costoReceta: suma insumos (Factura A por defecto)", () => {
   const receta = {
     id: "pizza",
     ingredientes: [
-      { tipo: "insumo", ref_id: "harina", cantidad: 250 }, // 250*100 = 25000
-      { tipo: "insumo", ref_id: "queso", cantidad: 220 }, // 220*680 = 149600
+      { tipo: "insumo", ref_id: "harina", cantidad: 250 }, // 250*100 = 25000 (neto)
+      { tipo: "insumo", ref_id: "queso", cantidad: 220 }, // 220*680 = 149600 (neto)
     ],
   };
   const total = costoReceta(receta, {
     getInsumo: (id) => insumos[id],
     getReceta: () => null,
   });
-  assert.equal(total, 25000 + 149600);
+  // Ambos insumos con IVA 21% → el costo de receta también lo incluye.
+  assert.equal(Math.round(total), Math.round((25000 + 149600) * 1.21)); // 211266
 });
 
 test("costoReceta: sub-receta se prorratea por su rendimiento", () => {
@@ -63,12 +69,13 @@ test("costoReceta: sub-receta se prorratea por su rendimiento", () => {
       ingredientes: [{ tipo: "receta", ref_id: "salsa", cantidad: 120 }], // usa 120 ml de salsa
     },
   };
-  // costo salsa = 100000; costo por ml = 100000/4000 = 25; 120 ml → 3000
+  // Neto: costo salsa = 100000; por ml = 25; 120 ml → 3000.
+  // Con IVA 21% incluido → 3000 * 1.21 = 3630.
   const total = costoReceta(recetas.plato, {
     getInsumo: (id) => insumos[id],
     getReceta: (id) => recetas[id],
   });
-  assert.equal(total, 3000);
+  assert.equal(Math.round(total), Math.round(3000 * 1.21)); // 3630
 });
 
 test("costoReceta: detecta ciclo A→B→A", () => {
