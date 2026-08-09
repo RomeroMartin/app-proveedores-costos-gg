@@ -180,12 +180,12 @@ function abrirEditor(receta, tipo) {
       const cls = claseFoodCost(rent.foodCostPct);
       panelRent.appendChild(el("div", { class: "rent-grid" },
         tile("Costo (c/IVA)", formatearCentavos(costo)),
-        tile("Precio neto", formatearCentavos(Math.round(rent.precioNetoCentavos))),
+        tile("Precio carta", formatearCentavos(rent.precioPublicoCentavos)),
         tile("Food cost", precioPub > 0 ? formatearPorcentaje(rent.foodCostPct, 1) : "—", cls),
       ));
       panelRent.appendChild(el("div", { class: "flex justify-between", style: "margin-top:10px;font-size:.85rem" },
-        el("span", { class: "text-muted" }, `Margen bruto: ${formatearCentavos(Math.round(rent.margenBrutoCentavos))}`),
-        el("span", { class: "text-muted" }, `Precio de carta: ${formatearCentavos(precioPub)} (c/IVA)`),
+        el("span", { class: "text-muted" }, `Margen bruto: ${formatearCentavos(Math.round(rent.margenBrutoCentavos))} (c/IVA)`),
+        el("span", { class: "text-muted" }, `Precio neto: ${formatearCentavos(Math.round(rent.precioNetoCentavos))}`),
       ));
       // Calculadora inversa
       const inpObjetivo = el("input", { class: "form-control", type: "number", value: 30, step: "1", min: "1", style: "max-width:90px" });
@@ -286,7 +286,7 @@ function imprimirFicha(receta) {
     const rent = rentabilidad(receta, costo);
     extra = el("div", { class: "rent-grid", style: "margin-top:16px" },
       tile("Costo (c/IVA)", formatearCentavos(costo)),
-      tile("Precio neto", formatearCentavos(Math.round(rent.precioNetoCentavos))),
+      tile("Precio carta", formatearCentavos(rent.precioPublicoCentavos)),
       tile("Food cost", formatearPorcentaje(rent.foodCostPct, 1)),
     );
   }

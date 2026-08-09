@@ -84,6 +84,12 @@ La presentación de compra existe **solo para la UI y la conversión**. La lógi
 > o C. En la práctica `costoRealPorUnidadBase` siempre hace
 > `neto * (1 + alícuota/100)`. Las **facturas** siguen guardando el desglose
 > neto/IVA/total (realidad fiscal para AFIP); esto solo cambia el **costeo**.
+>
+> En consecuencia, la **rentabilidad** también pasó a compararse "todo con
+> IVA": el **food cost %** ahora es `costo (c/IVA) / precio de carta (c/IVA)`
+> (antes se comparaba contra el precio de venta neto), porque el precio de
+> carta se carga con IVA incluido.
+>
 > El texto original de esta sección se conserva como referencia histórica del
 > criterio anterior (por si se quisiera volver a él). Ver `core/costeo.js` y
 > `CONTEXTO-COSTEO.md`.

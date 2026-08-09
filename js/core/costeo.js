@@ -158,19 +158,27 @@ export function validarGrafoReceta(receta, getReceta, recetaIdCandidata) {
 
 /**
  * Rentabilidad de un plato (Sección 6.3).
- * food cost % = costo neto / precio de venta neto.
+ *
+ * ⚠️ POLÍTICA (2026-08): TODO se compara "con IVA". El costo ya incluye IVA
+ *    (ver costoRealPorUnidadBase) y el precio de carta se carga con IVA
+ *    incluido. Por eso:
+ *      food cost % = costo (c/IVA) / precio de carta (c/IVA)
+ *      margen bruto = precio de carta − costo (ambos c/IVA)
+ *    `precioNetoCentavos` se sigue devolviendo, pero solo como dato
+ *    informativo (el neto del precio de carta).
  *
  * @param {object} plato  con `precio_venta_publico_centavos` y `alicuota_venta`
- * @param {number} costoRecetaCentavos  costo neto de la receta (centavos)
+ * @param {number} costoRecetaCentavos  costo de la receta con IVA (centavos)
  * @returns {{precioNetoCentavos:number, foodCostPct:number, margenBrutoCentavos:number, precioPublicoCentavos:number}}
  */
 export function rentabilidad(plato, costoRecetaCentavos) {
   const precioPublico = Number(plato.precio_venta_publico_centavos) || 0;
   const ali = Number(plato.alicuota_venta) || 0;
-  const precioNeto = precioPublico / (1 + ali / 100);
+  const precioNeto = precioPublico / (1 + ali / 100); // informativo
   const costo = Number(costoRecetaCentavos) || 0;
-  const foodCostPct = precioNeto > 0 ? (costo / precioNeto) * 100 : 0;
-  const margenBruto = precioNeto - costo;
+  // Food cost y margen contra el PRECIO DE CARTA (con IVA), no contra el neto.
+  const foodCostPct = precioPublico > 0 ? (costo / precioPublico) * 100 : 0;
+  const margenBruto = precioPublico - costo;
   return {
     precioNetoCentavos: precioNeto,
     foodCostPct,
@@ -180,23 +188,24 @@ export function rentabilidad(plato, costoRecetaCentavos) {
 }
 
 /**
- * Calculadora inversa (UX 7.4): ¿a qué precio PÚBLICO (con IVA) hay que
+ * Calculadora inversa (UX 7.4): ¿a qué PRECIO DE CARTA (con IVA) hay que
  * vender un plato para alcanzar un food cost % objetivo?
  *
- *   precio_neto  = costo / (foodCostObjetivo/100)
- *   precio_carta = precio_neto * (1 + alícuota_venta/100)
+ * Como el food cost se mide contra el precio de carta (con IVA):
+ *   precio_carta = costo / (foodCostObjetivo/100)
+ *   precio_neto  = precio_carta / (1 + alícuota_venta/100)   (informativo)
  *
- * @param {number} costoRecetaCentavos  costo neto (centavos)
+ * @param {number} costoRecetaCentavos  costo de la receta con IVA (centavos)
  * @param {number} foodCostObjetivoPct  (%) ej. 30
- * @param {number} alicuotaVenta        (%) ej. 21
+ * @param {number} alicuotaVenta        (%) ej. 21 (solo para el neto informativo)
  * @returns {{precioNetoCentavos:number, precioPublicoCentavos:number}}
  */
 export function precioSugerido(costoRecetaCentavos, foodCostObjetivoPct, alicuotaVenta) {
   const costo = Number(costoRecetaCentavos) || 0;
   const objetivo = Number(foodCostObjetivoPct) || 0;
   if (objetivo <= 0) return { precioNetoCentavos: 0, precioPublicoCentavos: 0 };
-  const precioNeto = costo / (objetivo / 100);
-  const precioPublico = precioNeto * (1 + (Number(alicuotaVenta) || 0) / 100);
+  const precioPublico = costo / (objetivo / 100);
+  const precioNeto = precioPublico / (1 + (Number(alicuotaVenta) || 0) / 100); // informativo
   return {
     precioNetoCentavos: precioNeto,
     precioPublicoCentavos: precioPublico,
