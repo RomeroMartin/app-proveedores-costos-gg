@@ -14,7 +14,7 @@ import * as usuarios from "./ui/usuarios.js";
 
 // Cada ruta declara la capacidad que exige (roles.js decide quién la ve).
 const RUTAS = [
-  { hash: "dashboard", label: "Dashboard", icono: "dashboard", cap: "ver_dashboard", render: dashboard.render },
+  { hash: "dashboard", label: "Tablero", icono: "dashboard", cap: "ver_dashboard", render: dashboard.render },
   { hash: "costos", label: "Costos", icono: "costos", cap: "ver_costos", render: escandallos.render },
   { hash: "insumos", label: "Insumos", icono: "insumos", cap: "ver_insumos", render: insumos.render },
   { hash: "proveedores", label: "Proveedores", icono: "proveedores", cap: "ver_proveedores", render: proveedores.render },
