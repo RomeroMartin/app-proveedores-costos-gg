@@ -15,7 +15,7 @@ import * as store from "../store.js";
 
 const UMBRAL_FOODCOST = 35;
 const DIAS_DESACTUALIZADO = 30;
-const DIAS_POR_VENCER = 14;
+const DIAS_POR_VENCER = 7;
 
 function diasHasta(ts) {
   const d = ts && ts.toDate ? ts.toDate() : null;
@@ -50,34 +50,40 @@ export async function render(main) {
 
   // ── KPIs ──
   const deudaTotal = proveedores.reduce((a, p) => a + (Number(p.saldo_total_deuda_centavos) || 0), 0);
+  const provConDeuda = proveedores.filter((p) => (Number(p.saldo_total_deuda_centavos) || 0) > 0).length;
   const platos = recetas.filter((r) => r.tipo === "plato");
   const rents = platos.map((p) => ({ p, r: rentabilidad(p, store.costoDeReceta(p) || 0) }))
     .filter((x) => x.p.precio_venta_publico_centavos > 0);
   const promFoodCost = rents.length ? rents.reduce((a, x) => a + x.r.foodCostPct, 0) / rents.length : 0;
 
   cont.appendChild(el("div", { class: "kpi-grid" },
-    kpi("Deuda total", formatearCentavos(deudaTotal), `${proveedores.length} proveedores`, deudaTotal > 0 ? "danger" : "ok"),
-    kpi("Facturas pendientes", String(pendientes.length), "con saldo abierto"),
-    kpi("Costo s/ venta prom.", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`, promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok"),
-    kpi("Insumos", String(insumos.length), "materia prima"),
+    kpi("Deuda total", formatearCentavos(deudaTotal), `${provConDeuda} con deuda`, deudaTotal > 0 ? "danger" : "ok"),
+    kpi("Facturas pendientes", String(pendientes.length), ""),
+    kpi("Costo promedio %", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`, promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok"),
+    kpi("Cant. Insumos", String(insumos.length), "materia prima"),
   ));
 
   // ── Columnas ──
   const grid = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:6px" });
   cont.appendChild(grid);
 
-  // Top proveedores por deuda
-  const topProv = [...proveedores].filter((p) => (p.saldo_total_deuda_centavos || 0) > 0)
-    .sort((a, b) => b.saldo_total_deuda_centavos - a.saldo_total_deuda_centavos).slice(0, 5);
+  // Top proveedores por deuda: los 5 con mayor deuda (de mayor a menor).
+  const topProv = [...proveedores]
+    .sort((a, b) => (Number(b.saldo_total_deuda_centavos) || 0) - (Number(a.saldo_total_deuda_centavos) || 0))
+    .slice(0, 5);
   grid.appendChild(tarjetaLista("Top proveedores por deuda", topProv.length
-    ? topProv.map((p) => fila(p.nombre, formatearCentavos(p.saldo_total_deuda_centavos), "badge-danger"))
-    : [vacio("Sin deudas registradas.")]));
+    ? topProv.map((p) => {
+        const saldo = Number(p.saldo_total_deuda_centavos) || 0;
+        return fila(p.nombre, formatearCentavos(saldo), saldo > 0 ? "badge-danger" : "badge-muted");
+      })
+    : [vacio("No hay proveedores cargados.")]));
 
   // Facturas próximas a vencer
+  // Todas las que vencen en DIAS_POR_VENCER días o menos (incluye vencidas), sin tope.
   const porVencer = pendientes
     .map((f) => ({ f, dias: diasHasta(f.fecha_vencimiento) }))
     .filter((x) => x.dias !== null && x.dias <= DIAS_POR_VENCER)
-    .sort((a, b) => a.dias - b.dias).slice(0, 6);
+    .sort((a, b) => a.dias - b.dias);
   grid.appendChild(tarjetaLista("Facturas próximas a vencer", porVencer.length
     ? porVencer.map((x) => fila(
         `${x.f.tipo_comprobante} ${x.f.numero_factura || ""}`,
