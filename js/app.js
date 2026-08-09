@@ -3,6 +3,7 @@
 // ============================================================
 
 import { protegerApp, logout } from "./auth.js";
+import { APP_VERSION } from "./version.js";
 import { $, el, ico } from "./ui/helpers.js";
 import { puede, badgeRol } from "./roles.js";
 import * as store from "./store.js";
@@ -32,7 +33,14 @@ function construirShell(usuario) {
   const nav = el("nav", { class: "sidebar" });
   nav.appendChild(el("div", { class: "sidebar-brand" },
     el("span", { class: "marca-icon", html: ico("hoja", 18) }),
-    el("span", {}, "GG Costos")));
+    el("span", {}, "GG Costos"),
+    // Etiqueta de versión: se actualiza sola al cambiar APP_VERSION (version.js).
+    el("span", {
+      class: "app-version-badge",
+      style: "margin-left:8px;font:600 10px/1 ui-monospace,monospace;color:#9a7f43;"
+        + "background:rgba(154,127,67,0.12);border:1px solid rgba(154,127,67,0.35);"
+        + "padding:2px 6px;border-radius:10px;letter-spacing:.3px;vertical-align:middle;white-space:nowrap;",
+    }, "v" + APP_VERSION)));
 
   const links = rutas.map((r) => el("button", {
     class: "nav-link", dataset: { hash: r.hash },

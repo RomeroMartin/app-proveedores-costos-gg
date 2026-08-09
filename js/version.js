@@ -3,16 +3,13 @@
 // El sello se auto-estiliza (no depende del CSS del proyecto).
 // ============================================================
 
-export const APP_VERSION = "0.4.2";
+export const APP_VERSION = "0.4.3";
 
 function aplicarVersion() {
-  let sellos = document.querySelectorAll(".app-version");
-  if (!sellos.length) {
-    const v = document.createElement("div");
-    v.className = "app-version";
-    (document.body || document.documentElement).appendChild(v);
-    sellos = [v];
-  }
+  // Rellena SOLO los sellos existentes (ej. el del login). Ya no crea uno
+  // flotante por su cuenta: en la app, la versión se muestra en la barra
+  // lateral (ver js/app.js), leyendo APP_VERSION de este mismo archivo.
+  const sellos = document.querySelectorAll(".app-version");
   sellos.forEach((el) => {
     el.textContent = "v" + APP_VERSION;
     el.style.cssText =
