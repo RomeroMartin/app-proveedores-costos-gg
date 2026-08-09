@@ -2,7 +2,7 @@
 // ui/dashboard.js — Panel principal (Sección 7.1)
 // ------------------------------------------------------------
 // Deuda consolidada + top proveedores, facturas por vencer, platos con
-// peor food cost, panel de alertas (precios desactualizados, recetas sobre
+// peor costo sobre venta, panel de alertas (precios desactualizados, recetas sobre
 // el umbral). Exportación a Excel.
 // ============================================================
 
@@ -32,7 +32,7 @@ export async function render(main) {
   main.innerHTML = "";
   main.appendChild(el("div", { class: "page-header" },
     el("div", {},
-      el("div", { class: "page-title" }, "Dashboard"),
+      el("div", { class: "page-title" }, "Tablero"),
       el("div", { class: "page-subtitle" }, "Deuda, vencimientos, rentabilidad y alertas."),
     ),
     el("button", { class: "btn btn-secondary", onClick: () => render(main) }, el("span", { html: ico("refrescar", 16) }), "Refrescar"),
@@ -58,7 +58,7 @@ export async function render(main) {
   cont.appendChild(el("div", { class: "kpi-grid" },
     kpi("Deuda total", formatearCentavos(deudaTotal), `${proveedores.length} proveedores`, deudaTotal > 0 ? "danger" : "ok"),
     kpi("Facturas pendientes", String(pendientes.length), "con saldo abierto"),
-    kpi("Food cost promedio", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`, promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok"),
+    kpi("Costo s/ venta prom.", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`, promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok"),
     kpi("Insumos", String(insumos.length), "materia prima"),
   ));
 
@@ -88,7 +88,7 @@ export async function render(main) {
 
   // Peores food cost
   const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 6);
-  grid.appendChild(tarjetaLista("Platos con peor food cost", peores.length
+  grid.appendChild(tarjetaLista("Platos con peor costo s/ venta", peores.length
     ? peores.map((x) => fila(x.p.nombre, formatearPorcentaje(x.r.foodCostPct, 1),
         x.r.foodCostPct > UMBRAL_FOODCOST ? "badge-danger" : (x.r.foodCostPct > 30 ? "badge-warn" : "badge-ok")))
     : [vacio("Sin platos con precio cargado.")]));
@@ -101,7 +101,7 @@ export async function render(main) {
   }
   for (const x of rents) {
     if (x.r.foodCostPct > UMBRAL_FOODCOST)
-      alertas.push({ txt: `"${x.p.nombre}": food cost ${formatearPorcentaje(x.r.foodCostPct, 1)} supera el ${UMBRAL_FOODCOST}%.`, cls: "badge-danger" });
+      alertas.push({ txt: `"${x.p.nombre}": costo s/ venta ${formatearPorcentaje(x.r.foodCostPct, 1)} supera el ${UMBRAL_FOODCOST}%.`, cls: "badge-danger" });
   }
   grid.appendChild(tarjetaLista(`Alertas (${alertas.length})`, alertas.length
     ? alertas.slice(0, 10).map((a) => el("div", { class: "flex items-center gap-8", style: "padding:8px 0;font-size:.85rem;border-bottom:1px solid var(--borde)" },
@@ -153,7 +153,7 @@ function exportarRent(platos) {
         "Costo c/IVA ($)": costo / 100,
         "Precio neto ($)": Math.round(r.precioNetoCentavos) / 100,
         "Precio carta ($)": (p.precio_venta_publico_centavos || 0) / 100,
-        "Food cost %": Number(r.foodCostPct.toFixed(1)),
+        "Costo s/ venta %": Number(r.foodCostPct.toFixed(1)),
         "Margen bruto ($)": Math.round(r.margenBrutoCentavos) / 100,
       };
     });

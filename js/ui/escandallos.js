@@ -2,7 +2,7 @@
 // ui/escandallos.js — Recetas / Escandallos y rentabilidad (Sección 7.4)
 // ------------------------------------------------------------
 // Regla de UI 6.3: nunca un porcentaje suelto. Se muestran siempre los tres
-// números juntos y etiquetados: costo (con IVA), precio neto, food cost %.
+// números juntos y etiquetados: costo (con IVA), precio de carta, costo s/ venta %.
 // ============================================================
 
 import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, fechaCorta } from "./helpers.js";
@@ -91,7 +91,7 @@ function seccion(titulo, lista, esPlato) {
       el("th", {}, "Receta"),
       el("th", { class: "num" }, "Costo (c/IVA)"),
       esPlato ? el("th", { class: "num" }, "Precio carta") : el("th", { class: "num" }, "Rinde"),
-      esPlato ? el("th", { class: "num" }, "Food cost") : el("th", { class: "num" }, "Costo / u."),
+      esPlato ? el("th", { class: "num" }, "Costo s/ venta") : el("th", { class: "num" }, "Costo / u."),
       el("th", { class: "text-right" }, "Acciones"),
     )),
     el("tbody", {}, ...filas),
@@ -181,7 +181,7 @@ function abrirEditor(receta, tipo) {
       panelRent.appendChild(el("div", { class: "rent-grid" },
         tile("Costo (c/IVA)", formatearCentavos(costo)),
         tile("Precio carta", formatearCentavos(rent.precioPublicoCentavos)),
-        tile("Food cost", precioPub > 0 ? formatearPorcentaje(rent.foodCostPct, 1) : "—", cls),
+        tile("Costo s/ venta", precioPub > 0 ? formatearPorcentaje(rent.foodCostPct, 1) : "—", cls),
       ));
       panelRent.appendChild(el("div", { class: "flex justify-between", style: "margin-top:10px;font-size:.85rem" },
         el("span", { class: "text-muted" }, `Margen bruto: ${formatearCentavos(Math.round(rent.margenBrutoCentavos))} (c/IVA)`),
@@ -196,7 +196,7 @@ function abrirEditor(receta, tipo) {
       };
       inpObjetivo.addEventListener("input", calc); calc();
       panelRent.appendChild(el("div", { class: "flex items-center gap-8", style: "margin-top:12px;flex-wrap:wrap" },
-        el("span", { class: "text-muted", style: "font-size:.82rem" }, "Para food cost"),
+        el("span", { class: "text-muted", style: "font-size:.82rem" }, "Para costo s/ venta"),
         inpObjetivo, el("span", { class: "text-muted", style: "font-size:.82rem" }, "% vender a:"), salida));
     } else {
       const rend = Number(inpRendCant.value) || 1;
@@ -287,7 +287,7 @@ function imprimirFicha(receta) {
     extra = el("div", { class: "rent-grid", style: "margin-top:16px" },
       tile("Costo (c/IVA)", formatearCentavos(costo)),
       tile("Precio carta", formatearCentavos(rent.precioPublicoCentavos)),
-      tile("Food cost", formatearPorcentaje(rent.foodCostPct, 1)),
+      tile("Costo s/ venta", formatearPorcentaje(rent.foodCostPct, 1)),
     );
   }
 

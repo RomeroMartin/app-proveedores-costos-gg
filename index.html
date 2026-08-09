@@ -81,7 +81,7 @@
         btnLogin.disabled = false;
         btnLogin.textContent = "Ingresar";
         const cod = err.code || "";
-        if (cod.includes("invalid-credential") || cod.includes("wrong-password") || cod.includes("user-not-found")) mostrar("Email o contraseña incorrectos.");
+        if (cod.includes("invalid-credential") || cod.includes("wrong-password") || cod.includes("user-not-found")) mostrar("Correo o contraseña incorrectos.");
         else if (cod.includes("too-many-requests")) mostrar("Demasiados intentos. Esperá unos minutos.");
         else if (cod.includes("api-key") || cod.includes("configuration")) mostrar("Firebase sin configurar. Completá js/config/firebase.js.");
         else mostrar(err.message || "Error al ingresar.");
