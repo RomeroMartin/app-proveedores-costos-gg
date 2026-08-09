@@ -105,18 +105,19 @@ test("validarGrafoReceta: grafo válido pasa", () => {
   assert.equal(r.ok, true);
 });
 
-test("rentabilidad: food cost % sobre precio NETO", () => {
-  // precio público 1210 (con 21%) → neto 1000; costo 300 → food cost 30%
+test("rentabilidad: food cost % contra el PRECIO DE CARTA (con IVA)", () => {
+  // Costo y precio de carta van AMBOS con IVA: food cost = 300/1210 ≈ 24,79 %
   const plato = { precio_venta_publico_centavos: 1210, alicuota_venta: 21 };
   const r = rentabilidad(plato, 300);
-  assert.equal(Math.round(r.precioNetoCentavos), 1000);
-  assert.equal(Math.round(r.foodCostPct), 30);
-  assert.equal(Math.round(r.margenBrutoCentavos), 700);
+  assert.equal(r.precioPublicoCentavos, 1210);
+  assert.equal(Math.round(r.foodCostPct * 100) / 100, 24.79); // 300 / 1210
+  assert.equal(Math.round(r.margenBrutoCentavos), 910);       // 1210 - 300
+  assert.equal(Math.round(r.precioNetoCentavos), 1000);       // informativo
 });
 
-test("precioSugerido: inversa del food cost objetivo", () => {
-  // costo 300, objetivo 30% → neto 1000 → público 1210 (21%)
+test("precioSugerido: precio de carta para un food cost objetivo (c/IVA)", () => {
+  // costo 300, objetivo 30% → precio de carta = 300/0.30 = 1000 (con IVA)
   const r = precioSugerido(300, 30, 21);
-  assert.equal(Math.round(r.precioNetoCentavos), 1000);
-  assert.equal(Math.round(r.precioPublicoCentavos), 1210);
+  assert.equal(Math.round(r.precioPublicoCentavos), 1000); // 300 / 0.30
+  assert.equal(Math.round(r.precioNetoCentavos), 826);     // 1000 / 1.21 (informativo)
 });

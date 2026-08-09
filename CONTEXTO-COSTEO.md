@@ -60,17 +60,25 @@ return base / factor_correccion;
   **costo neto por unidad base** (el valor guardado sigue siendo el neto; el
   IVA se agrega recién al costear).
 
-## 6. Efecto en el food cost % (a tener en cuenta)
+## 6. Food cost % — todo comparado "con IVA" (v0.4.1)
 
-Como el **costo** ahora es más alto (incluye IVA) pero el **food cost %** se
-sigue calculando contra el **precio de venta NETO**, el food cost % que muestra
-la app va a dar **más alto** que antes.
+El precio de carta se carga **con IVA incluido**, así que el food cost % se
+compara **manzana con manzana**:
 
-Si en algún momento se quiere que quede coherente "todo con IVA", habría que
-comparar el costo (con IVA) contra el **precio de carta final** (con IVA) en
-`rentabilidad()` / `precioSugerido()` (core/costeo.js). **No se hizo** porque la
-administración solo pidió cambiar el costo. Es un cambio de una línea si lo
-piden.
+```
+food cost %  = costo (c/IVA) / precio de carta (c/IVA)
+margen bruto = precio de carta − costo   (ambos c/IVA)
+```
+
+- Antes el food cost % se calculaba contra el precio de venta **neto** (le
+  sacaba el IVA), lo que daba un porcentaje más alto y descolocado. Ahora usa
+  el **precio de carta** tal cual se carga.
+- `precioSugerido()` también quedó coherente: el precio de carta sugerido para
+  un food cost objetivo es `costo / (objetivo/100)`.
+- `precioNetoCentavos` se sigue calculando, pero solo como **dato informativo**
+  (el neto del precio de carta).
+- En la pantalla de Costos las tarjetas ahora muestran: **Costo (c/IVA)**,
+  **Precio carta**, **Food cost** — todo en términos finales.
 
 ## 7. Cómo volver atrás (si cambian de idea)
 
