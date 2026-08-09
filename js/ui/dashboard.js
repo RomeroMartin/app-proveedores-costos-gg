@@ -57,10 +57,14 @@ export async function render(main) {
   const promFoodCost = rents.length ? rents.reduce((a, x) => a + x.r.foodCostPct, 0) / rents.length : 0;
 
   cont.appendChild(el("div", { class: "kpi-grid" },
-    kpi("Deuda total", formatearCentavos(deudaTotal), `${provConDeuda} con deuda`, deudaTotal > 0 ? "danger" : "ok"),
-    kpi("Facturas pendientes", String(pendientes.length), ""),
-    kpi("Costo promedio %", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`, promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok"),
-    kpi("Cant. Insumos", String(insumos.length), "materia prima"),
+    kpi("Deuda total", formatearCentavos(deudaTotal), `${provConDeuda} con deuda`, deudaTotal > 0 ? "danger" : "ok",
+      "Total que le debés a tus proveedores (suma de todos los saldos). El subtítulo indica cuántos proveedores tienen deuda."),
+    kpi("Facturas pendientes", String(pendientes.length), "", "",
+      "Cantidad de facturas impagas, con saldo total o parcial. No incluye las pagadas ni las anuladas."),
+    kpi("Costo promedio %", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`, promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok",
+      "Promedio del costo (con IVA) sobre el precio de carta de todos tus platos. Cuanto más bajo, más rentable."),
+    kpi("Cant. Insumos", String(insumos.length), "materia prima", "",
+      "Cantidad de insumos (materia prima) cargados en el sistema."),
   ));
 
   // ── Columnas ──
@@ -76,7 +80,8 @@ export async function render(main) {
         const saldo = Number(p.saldo_total_deuda_centavos) || 0;
         return fila(p.nombre, formatearCentavos(saldo), saldo > 0 ? "badge-danger" : "badge-muted");
       })
-    : [vacio("No hay proveedores cargados.")]));
+    : [vacio("No hay proveedores cargados.")],
+    "Los 5 proveedores a los que más les debés, ordenados de mayor a menor deuda."));
 
   // Facturas próximas a vencer
   // Todas las que vencen en DIAS_POR_VENCER días o menos (incluye vencidas), sin tope.
@@ -90,14 +95,16 @@ export async function render(main) {
         `${formatearCentavos(x.f.saldo_pendiente_centavos)}`,
         x.dias < 0 ? "badge-danger" : "badge-warn",
         x.dias < 0 ? `vencida hace ${-x.dias}d` : `en ${x.dias}d`))
-    : [vacio("Nada por vencer en los próximos días.")]));
+    : [vacio("Nada por vencer en los próximos días.")],
+    "Facturas impagas que vencen en 7 días o menos. Incluye las que ya están vencidas."));
 
   // Platos menos rentables: los 10 con mayor costo respecto de su precio de venta.
   const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 10);
   grid.appendChild(tarjetaLista("Platos menos rentables", peores.length
     ? peores.map((x) => fila(x.p.nombre, formatearPorcentaje(x.r.foodCostPct, 1),
         x.r.foodCostPct > UMBRAL_FOODCOST ? "badge-danger" : (x.r.foodCostPct > 30 ? "badge-warn" : "badge-ok")))
-    : [vacio("Sin platos con precio cargado.")]));
+    : [vacio("Sin platos con precio cargado.")],
+    "Los 10 platos con mayor costo respecto de su precio de venta: los que menos margen te dejan."));
 
   // Panel de alertas
   const alertas = [];
@@ -112,10 +119,12 @@ export async function render(main) {
   grid.appendChild(tarjetaLista(`Alertas (${alertas.length})`, alertas.length
     ? alertas.slice(0, 10).map((a) => el("div", { class: "flex items-center gap-8", style: "padding:8px 0;font-size:.85rem;border-bottom:1px solid var(--borde)" },
         el("span", { class: `badge ${a.cls}` }, "!"), a.txt))
-    : [vacio("Todo en orden. Sin alertas.")]));
+    : [vacio("Todo en orden. Sin alertas.")],
+    `Avisos automáticos: insumos con precio sin actualizar hace más de ${DIAS_DESACTUALIZADO} días, y platos con costo sobre venta por encima del ${UMBRAL_FOODCOST}%.`));
 
   // Exportaciones
   cont.appendChild(el("div", { class: "card", style: "margin-top:14px" },
+    ayuda("Descargá a Excel la deuda por proveedor o la rentabilidad de todos los platos."),
     el("p", { class: "card-title" }, "Exportar"),
     el("div", { class: "flex gap-8 wrap" },
       el("button", { class: "btn btn-sm btn-secondary", onClick: () => exportarDeuda(proveedores) }, el("span", { html: ico("excel", 16) }), "Deuda por proveedor"),
@@ -124,14 +133,24 @@ export async function render(main) {
   ));
 }
 
-function kpi(label, valor, sub, tono = "") {
+// Icono ⓘ con cartel explicativo. En desktop aparece al pasar el mouse;
+// en mobile, al tocarlo (el foco del botón dispara :focus). Ver .ayuda en CSS.
+function ayuda(texto) {
+  return el("button", { class: "ayuda", type: "button", "aria-label": "Qué muestra esta tarjeta" },
+    "i", el("span", { class: "ayuda-tip" }, texto));
+}
+
+function kpi(label, valor, sub, tono = "", ayudaTxt = "") {
   return el("div", { class: `kpi ${tono}` },
+    ayudaTxt ? ayuda(ayudaTxt) : null,
     el("div", { class: "kpi-label" }, label),
     el("div", { class: "kpi-value" }, valor),
     sub ? el("div", { class: "kpi-sub" }, sub) : null);
 }
-function tarjetaLista(titulo, hijos) {
-  return el("div", { class: "card" }, el("p", { class: "card-title" }, titulo), ...hijos);
+function tarjetaLista(titulo, hijos, ayudaTxt = "") {
+  return el("div", { class: "card" },
+    ayudaTxt ? ayuda(ayudaTxt) : null,
+    el("p", { class: "card-title" }, titulo), ...hijos);
 }
 function fila(nombre, valor, badgeCls, sub) {
   return el("div", { class: "flex items-center justify-between", style: "padding:9px 0;border-bottom:1px solid var(--borde);font-size:.88rem;gap:10px" },
