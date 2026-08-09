@@ -92,9 +92,9 @@ export async function render(main) {
         x.dias < 0 ? `vencida hace ${-x.dias}d` : `en ${x.dias}d`))
     : [vacio("Nada por vencer en los próximos días.")]));
 
-  // Peores food cost
-  const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 6);
-  grid.appendChild(tarjetaLista("Platos con peor costo s/ venta", peores.length
+  // Platos menos rentables: los 10 con mayor costo respecto de su precio de venta.
+  const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 10);
+  grid.appendChild(tarjetaLista("Platos menos rentables", peores.length
     ? peores.map((x) => fila(x.p.nombre, formatearPorcentaje(x.r.foodCostPct, 1),
         x.r.foodCostPct > UMBRAL_FOODCOST ? "badge-danger" : (x.r.foodCostPct > 30 ? "badge-warn" : "badge-ok")))
     : [vacio("Sin platos con precio cargado.")]));

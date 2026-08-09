@@ -3,7 +3,7 @@
 // El sello se auto-estiliza (no depende del CSS del proyecto).
 // ============================================================
 
-export const APP_VERSION = "0.4.4";
+export const APP_VERSION = "0.4.5";
 
 function aplicarVersion() {
   // Rellena SOLO los sellos existentes (ej. el del login). Ya no crea uno
