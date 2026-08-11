@@ -3,7 +3,7 @@
 // (Secciones 7.2 y 7.5)
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, iconoAyuda } from "./helpers.js";
 import { formatearCentavos, pesosACentavos } from "../core/dinero.js";
 import { CONDICIONES_FISCALES, TIPOS_COMPROBANTE, ALICUOTAS_IVA, desglosarFactura, validarCuadraturaFactura } from "../core/fiscal.js";
 import { puede } from "../roles.js";
@@ -92,9 +92,11 @@ function abrirFormProveedor(prov = null) {
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "CUIT"), inpCuit),
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Condición fiscal"), selCond),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Condición fiscal",
+        iconoAyuda("Define cómo factura. Responsable Inscripto → Factura A (IVA discriminado). Monotributo → Factura C (sin IVA discriminado).")), selCond),
     ),
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubros (opcional)"), boxRubros),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubros (opcional)",
+      iconoAyuda("Qué tipo(s) de producto te vende. Sirve para sugerir el rubro de sus insumos y para filtrar. Podés elegir varios.")), boxRubros),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Contacto"), inpContacto),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Teléfono"), inpTel),
@@ -232,7 +234,8 @@ function abrirFormFactura(prov, onDone) {
 
   const form = el("div", {},
     el("div", { class: "form-row" },
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Comprobante"), selTipo),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Comprobante",
+        iconoAyuda("Tipo de factura. La A (de Responsable Inscripto) discrimina IVA; la B/C no.")), selTipo),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Número"), inpNumero),
     ),
     el("div", { class: "form-row" },
@@ -240,9 +243,11 @@ function abrirFormFactura(prov, onDone) {
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Vencimiento"), inpVenc),
     ),
     el("div", { class: "form-row-3" },
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Neto gravado"), inpNeto),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Neto gravado",
+        iconoAyuda("El importe SIN IVA. Escribí el neto o el total: el otro se completa solo.")), inpNeto),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota"), selAli),
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Percepciones"), inpPercep),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Percepciones",
+        iconoAyuda("Anticipos de impuesto (IVA/IIBB) de facturas grandes. Suman al total a pagar, pero NO son costo ni crédito fiscal.")), inpPercep),
     ),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Total (impreso en la factura)"), inpTotal),
     cuadro,

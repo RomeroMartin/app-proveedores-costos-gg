@@ -68,6 +68,14 @@
   opacity: 1; visibility: visible; transform: translateY(0);
 }
 
+/* Variante inline: el ⓘ al lado de la etiqueta de un campo de formulario */
+.ayuda-inline {
+  position: relative; top: auto; right: auto;
+  width: 16px; height: 16px; font-size: 10px;
+  margin-left: 6px; vertical-align: middle;
+}
+.ayuda-inline .ayuda-tip { top: 22px; left: 0; right: auto; text-transform: none; }
+
 /* ── Botones ───────────────────────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;

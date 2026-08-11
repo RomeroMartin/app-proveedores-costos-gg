@@ -7,7 +7,7 @@
 // de la cuenta creada (cred.user.uid) y con eso se guarda su perfil.
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, iconoAyuda } from "./helpers.js";
 import { ROLES, badgeRol } from "../roles.js";
 import * as usuariosRepo from "../data/usuariosRepo.js";
 import * as store from "../store.js";
@@ -112,10 +112,12 @@ function abrirForm(usuario = null) {
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Email"), inpEmail,
       editar ? el("div", { class: "form-hint" }, "El email de acceso no se cambia desde acá.") : null),
-    editar ? null : el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Contraseña temporal"), inpPass,
+    editar ? null : el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Contraseña temporal",
+      iconoAyuda("Una clave provisoria para el primer ingreso. Después, cada uno puede cambiarla desde “¿Olvidaste tu contraseña?” en el login.")), inpPass,
       el("div", { class: "form-hint" }, "La usa para entrar la primera vez; después puede cambiarla.")),
     el("div", { class: "form-row" },
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rol"), selRol),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rol",
+        iconoAyuda("Gerente: acceso total (costos, precios, usuarios, anulaciones). Cargador: carga operativa (insumos, proveedores, facturas, pagos).")), selRol),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Estado"), selActivo),
     ),
   );
