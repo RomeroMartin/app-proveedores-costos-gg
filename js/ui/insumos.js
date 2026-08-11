@@ -2,7 +2,7 @@
 // ui/insumos.js — Pantalla de Insumos / Materia Prima (Sección 7.3)
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, graficoLineas } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, graficoLineas, iconoAyuda } from "./helpers.js";
 import { formatearCentavos, formatearPorcentaje, pesosACentavos } from "../core/dinero.js";
 import { MAGNITUDES, UNIDADES_POR_MAGNITUD, unidadBaseDe, convertirAUnidadBase, costoNetoPorUnidadBase } from "../core/unidades.js";
 import { ALICUOTAS_IVA } from "../core/fiscal.js";
@@ -191,28 +191,35 @@ function abrirFormInsumo(insumo = null) {
   const form = el("div", {},
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
     el("div", { class: "form-row" },
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Magnitud"), selMagnitud),
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota IVA"), selAlicuota),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Magnitud",
+        iconoAyuda("Cómo se mide el insumo: Masa (kg/g), Volumen (l/ml) o Unidad. Define la unidad base del costo.")), selMagnitud),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota IVA",
+        iconoAyuda("El % de IVA de este insumo. Se suma al costo (el costeo es por el precio final, con IVA).")), selAlicuota),
     ),
     el("div", { class: "card", style: "background:var(--bg-secondary);box-shadow:none" },
-      el("p", { class: "card-title" }, "Presentación de compra"),
+      el("p", { class: "card-title" }, "Presentación de compra",
+        iconoAyuda("Cómo lo comprás: ej. una barra de 5 kg a $34.000 (neto). Con eso la app calcula el costo por gramo / ml / unidad.")),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Descripción"), inpPresDesc),
       el("div", { class: "form-row-3" },
-        el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Cantidad"), inpPresCant),
+        el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Cantidad",
+          iconoAyuda("Cuánto trae la presentación, en la unidad que elijas (ej. 5 kg).")), inpPresCant),
         el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Unidad"), selPresUnidad),
-        el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Precio neto"), inpPresPrecio),
+        el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Precio neto",
+          iconoAyuda("El precio SIN IVA de toda la presentación.")), inpPresPrecio),
       ),
       preview,
     ),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" },
-        el("label", { class: "form-label" }, "Factor de corrección"),
+        el("label", { class: "form-label" }, "Factor de corrección",
+          iconoAyuda("Rendimiento útil tras limpieza/merma. 1 = sin pérdida. Ej: lomo 0,78 → de 1 kg quedan 780 g útiles, así que el gramo real cuesta más.")),
         inpFactor,
         el("div", { class: "form-hint" }, "1 = sin merma. Ej: lomo 0,78."),
       ),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Proveedor habitual"), selProv),
     ),
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubro"), selRubro),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubro",
+      iconoAyuda("Tipo de producto (Verdulería, Carnes, Almacén…). Sirve para filtrar y ordenar los insumos.")), selRubro),
   );
 
   const { cerrar } = abrirModal({

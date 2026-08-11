@@ -140,6 +140,13 @@ export function ico(nombre, size = 18) {
   return `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
 }
 
+/** Ícono "i" con cartel de ayuda, para poner al lado de la etiqueta de un campo.
+ *  En desktop aparece al pasar el mouse; en mobile, al tocarlo. */
+export function iconoAyuda(texto) {
+  return el("button", { class: "ayuda ayuda-inline", type: "button", "aria-label": "Ayuda" },
+    "i", el("span", { class: "ayuda-tip" }, texto));
+}
+
 // ── Gráfico de líneas SVG (sin librerías) ─────────────────────
 const SVGNS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs) {

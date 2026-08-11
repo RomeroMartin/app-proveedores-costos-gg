@@ -5,7 +5,7 @@
 // números juntos y etiquetados: costo (con IVA), precio de carta, costo s/ venta %.
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, fechaCorta } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, fechaCorta, iconoAyuda } from "./helpers.js";
 import { formatearCentavos, formatearPorcentaje, pesosACentavos } from "../core/dinero.js";
 import { ALICUOTAS_IVA } from "../core/fiscal.js";
 import { costoReceta, rentabilidad, precioSugerido, validarGrafoReceta } from "../core/costeo.js";
@@ -242,15 +242,21 @@ function abrirEditor(receta, tipo) {
   if (editar && tipo === "plato") inpPrecio.value = (receta.precio_venta_publico_centavos / 100).toString().replace(".", ",");
 
   const camposPlato = tipo === "plato" ? el("div", { class: "form-row" },
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Precio de carta (con IVA)"), inpPrecio),
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota de venta"), selAliVenta),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Precio de carta (con IVA)",
+      iconoAyuda("El precio final de venta al público, con IVA incluido (tal cual figura en la carta).")), inpPrecio),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota de venta",
+      iconoAyuda("El IVA con el que se vende el plato (normalmente 21%). Se usa para separar el neto del precio de carta.")), selAliVenta),
   ) : null;
 
   const form = el("div", {},
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
     el("div", { class: "form-row" },
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, tipo === "plato" ? "Rinde (porciones)" : "Rendimiento"), inpRendCant),
-      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Unidad"), inpRendUnidad),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, tipo === "plato" ? "Rinde (porciones)" : "Rendimiento",
+        iconoAyuda(tipo === "plato"
+          ? "Cuántas porciones salen de esta receta (normalmente 1). El costo se divide por este número."
+          : "El total que produce la preparación (ej. 2000 g de salsa). Sirve para repartir su costo entre las recetas que la usan.")), inpRendCant),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Unidad",
+        iconoAyuda("La unidad del rendimiento: porción, g, ml, un…")), inpRendUnidad),
     ),
     camposPlato,
     el("div", { class: "card", style: "box-shadow:none;border-style:dashed" },
