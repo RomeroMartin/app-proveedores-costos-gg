@@ -10,6 +10,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  sendPasswordResetEmail,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { doc, getDoc, setDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import { ROLES } from "./roles.js";
@@ -64,6 +65,11 @@ export async function login(email, password) {
 export async function logout() {
   await signOut(auth);
   window.location.href = "./index.html";
+}
+
+/** Envía un correo para restablecer/crear una nueva contraseña. */
+export async function recuperarPassword(email) {
+  await sendPasswordResetEmail(auth, (email || "").trim());
 }
 
 /**
