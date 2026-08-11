@@ -40,6 +40,7 @@ export async function crear(datos) {
     factor_correccion: Number(datos.factor_correccion) || 1,
     presentacion_compra: datos.presentacion_compra || null,
     proveedor_habitual_id: datos.proveedor_habitual_id || null,
+    rubro: datos.rubro || "",
     fecha_ultimo_precio: serverTimestamp(),
     ...camposCreacion(),
   };
@@ -60,7 +61,7 @@ export async function crear(datos) {
 
 /** Edita metadatos que no tocan el precio. */
 export async function actualizarMeta(id, datos) {
-  const permitidos = ["nombre", "magnitud", "unidad_base", "alicuota_iva", "factor_correccion", "presentacion_compra", "proveedor_habitual_id"];
+  const permitidos = ["nombre", "magnitud", "unidad_base", "alicuota_iva", "factor_correccion", "presentacion_compra", "proveedor_habitual_id", "rubro"];
   const payload = {};
   for (const k of permitidos) if (k in datos) payload[k] = datos[k];
   await updateDoc(doc(db, COL, id), { ...payload, ...camposModificacion() });
