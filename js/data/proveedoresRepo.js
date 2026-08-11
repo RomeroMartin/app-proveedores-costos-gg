@@ -39,6 +39,7 @@ export async function crear(datos) {
     contacto: (datos.contacto || "").trim(),
     telefono: (datos.telefono || "").trim(),
     email: (datos.email || "").trim(),
+    rubros: Array.isArray(datos.rubros) ? datos.rubros : [],
     saldo_total_deuda_centavos: 0,
     ...camposCreacion(),
   };
@@ -49,7 +50,7 @@ export async function crear(datos) {
 
 /** Edita datos de contacto/fiscales (nunca el saldo). */
 export async function actualizar(id, datos) {
-  const permitidos = ["nombre", "cuit", "condicion_fiscal", "contacto", "telefono", "email"];
+  const permitidos = ["nombre", "cuit", "condicion_fiscal", "contacto", "telefono", "email", "rubros"];
   const payload = {};
   for (const k of permitidos) if (k in datos) payload[k] = datos[k];
   await updateDoc(doc(db, COL, id), { ...payload, ...camposModificacion() });

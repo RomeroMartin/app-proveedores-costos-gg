@@ -6,6 +6,7 @@ import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCor
 import { formatearCentavos, formatearPorcentaje, pesosACentavos } from "../core/dinero.js";
 import { MAGNITUDES, UNIDADES_POR_MAGNITUD, unidadBaseDe, convertirAUnidadBase, costoNetoPorUnidadBase } from "../core/unidades.js";
 import { ALICUOTAS_IVA } from "../core/fiscal.js";
+import { RUBROS } from "../core/rubros.js";
 import * as insumosRepo from "../data/insumosRepo.js";
 import * as recetasRepo from "../data/recetasRepo.js";
 import * as store from "../store.js";
@@ -50,6 +51,11 @@ async function pintarLista(cont) {
     ...provsOrden.map((p) => el("option", { value: p.id }, p.nombre)),
     el("option", { value: "__sin__" }, "Sin proveedor"),
   );
+  const rubrosPresentes = [...new Set(insumos.map((i) => i.rubro).filter(Boolean))].sort();
+  const selRubro = el("select", { class: "form-control", style: estiloSel },
+    el("option", { value: "" }, "Todos los rubros"),
+    ...rubrosPresentes.map((r) => el("option", { value: r }, r)),
+  );
   const selTipo = el("select", { class: "form-control", style: estiloSel },
     el("option", { value: "" }, "Todos los tipos"),
     ...Object.entries(MAGNITUDES).map(([k, v]) => el("option", { value: k }, v.nombre)),
@@ -61,7 +67,7 @@ async function pintarLista(cont) {
   );
   const conteo = el("span", { class: "text-muted", style: "font-size:.8rem;margin-left:auto" }, "");
 
-  const toolbar = el("div", { class: "toolbar" }, buscador, selProv, selTipo, selEstado, conteo);
+  const toolbar = el("div", { class: "toolbar" }, buscador, selProv, selRubro, selTipo, selEstado, conteo);
   cont.appendChild(toolbar);
 
   const tablaWrap = el("div", { class: "tabla-wrap" });
@@ -69,11 +75,12 @@ async function pintarLista(cont) {
 
   function dibujar() {
     const f = buscador.value.toLowerCase().trim();
-    const pid = selProv.value, tipo = selTipo.value, est = selEstado.value;
+    const pid = selProv.value, rub = selRubro.value, tipo = selTipo.value, est = selEstado.value;
     const filtrados = insumos.filter((i) => {
       if (f && !((i.nombre || "").toLowerCase().includes(f) || (i.codigo || "").toLowerCase().includes(f))) return false;
       if (pid === "__sin__") { if (i.proveedor_habitual_id) return false; }
       else if (pid && i.proveedor_habitual_id !== pid) return false;
+      if (rub && (i.rubro || "") !== rub) return false;
       if (tipo && i.magnitud !== tipo) return false;
       if (est === "ok" && estaDesactualizado(i)) return false;
       if (est === "old" && !estaDesactualizado(i)) return false;
@@ -91,7 +98,7 @@ async function pintarLista(cont) {
       const tr = el("tr", {},
         el("td", {},
           el("div", { class: "celda-principal" }, i.nombre || "—"),
-          el("div", { class: "celda-sub" }, `${i.codigo || ""}${prov ? " · " + prov.nombre : ""}`),
+          el("div", { class: "celda-sub" }, `${i.codigo || ""}${prov ? " · " + prov.nombre : ""}${i.rubro ? " · " + i.rubro : ""}`),
         ),
         el("td", { class: "num" }, `${formatearCentavos(i.costo_neto_por_unidad_base_centavos)}/${i.unidad_base}`),
         el("td", { class: "num" }, formatearPorcentaje(i.alicuota_iva, 1)),
@@ -122,7 +129,7 @@ async function pintarLista(cont) {
       el("tbody", {}, ...filas),
     ));
   }
-  [buscador, selProv, selTipo, selEstado].forEach((elm) => elm.addEventListener("input", dibujar));
+  [buscador, selProv, selRubro, selTipo, selEstado].forEach((elm) => elm.addEventListener("input", dibujar));
   dibujar();
 }
 
@@ -146,6 +153,15 @@ function abrirFormInsumo(insumo = null) {
   const selProv = el("select", { class: "form-control" },
     el("option", { value: "" }, "— Sin proveedor —"),
     ...proveedores.map((p) => el("option", { value: p.id, selected: insumo && insumo.proveedor_habitual_id === p.id ? "selected" : null }, p.nombre)));
+  const selRubro = el("select", { class: "form-control" },
+    el("option", { value: "" }, "— Sin rubro —"),
+    ...RUBROS.map((r) => el("option", { value: r, selected: insumo && insumo.rubro === r ? "selected" : null }, r)));
+  // Al elegir proveedor, si no hay rubro puesto, sugerir el primero del proveedor.
+  const rubrosPorProv = {};
+  proveedores.forEach((p) => { rubrosPorProv[p.id] = Array.isArray(p.rubros) ? p.rubros : []; });
+  selProv.addEventListener("change", () => {
+    if (!selRubro.value) { const rs = rubrosPorProv[selProv.value] || []; if (rs.length) selRubro.value = rs[0]; }
+  });
   const preview = el("div", { class: "form-hint" }, "El costo por unidad base se calcula desde la presentación.");
 
   function actualizarUnidades() {
@@ -196,6 +212,7 @@ function abrirFormInsumo(insumo = null) {
       ),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Proveedor habitual"), selProv),
     ),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubro"), selRubro),
   );
 
   const { cerrar } = abrirModal({
@@ -216,6 +233,7 @@ function abrirFormInsumo(insumo = null) {
             alicuota_iva: Number(selAlicuota.value),
             factor_correccion: Number(inpFactor.value) || 1,
             proveedor_habitual_id: selProv.value || null,
+            rubro: selRubro.value || "",
             presentacion_compra: cantBase > 0 ? {
               descripcion: inpPresDesc.value.trim(),
               cantidad_base: cantBase,

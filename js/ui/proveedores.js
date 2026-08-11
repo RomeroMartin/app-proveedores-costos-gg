@@ -7,6 +7,7 @@ import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCor
 import { formatearCentavos, pesosACentavos } from "../core/dinero.js";
 import { CONDICIONES_FISCALES, TIPOS_COMPROBANTE, ALICUOTAS_IVA, desglosarFactura, validarCuadraturaFactura } from "../core/fiscal.js";
 import { puede } from "../roles.js";
+import { RUBROS } from "../core/rubros.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
 import * as facturasRepo from "../data/facturasRepo.js";
 import * as pagosRepo from "../data/pagosRepo.js";
@@ -52,7 +53,11 @@ async function pintarLista(cont) {
       el("tbody", {}, ...proveedores.map((p) => {
         const saldo = Number(p.saldo_total_deuda_centavos) || 0;
         return el("tr", {},
-          el("td", {}, el("div", { class: "celda-principal" }, p.nombre), el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`)),
+          el("td", {},
+            el("div", { class: "celda-principal" }, p.nombre),
+            el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`),
+            Array.isArray(p.rubros) && p.rubros.length ? el("div", { class: "celda-sub", style: "color:var(--verde)" }, p.rubros.join(" · ")) : null,
+          ),
           el("td", {}, el("span", { class: "badge badge-info" }, LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal)),
           el("td", { class: "num" }, el("span", { class: saldo > 0 ? "badge badge-danger" : (saldo < 0 ? "badge badge-ok" : "badge badge-muted") }, formatearCentavos(saldo))),
           el("td", { class: "text-right" }, el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirFicha(p) }, "Ver ficha")),
@@ -74,12 +79,22 @@ function abrirFormProveedor(prov = null) {
   const inpTel = f("telefono", "Teléfono");
   const inpEmail = f("email", "email@proveedor.com");
 
+  // Rubros (uno o varios, opcional) — chips seleccionables
+  const rubrosSel = new Set(prov && Array.isArray(prov.rubros) ? prov.rubros : []);
+  const chipsRubro = RUBROS.map((r) => {
+    const chk = el("input", { type: "checkbox", value: r, checked: rubrosSel.has(r) ? "checked" : null, style: "margin:0" });
+    chk.addEventListener("change", () => { chk.checked ? rubrosSel.add(r) : rubrosSel.delete(r); });
+    return el("label", { style: "display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--borde);border-radius:20px;font-size:.82rem;cursor:pointer;background:var(--bg-secondary);user-select:none" }, chk, r);
+  });
+  const boxRubros = el("div", { style: "display:flex;flex-wrap:wrap;gap:8px" }, ...chipsRubro);
+
   const form = el("div", {},
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "CUIT"), inpCuit),
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Condición fiscal"), selCond),
     ),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubros (opcional)"), boxRubros),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Contacto"), inpContacto),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Teléfono"), inpTel),
@@ -92,7 +107,7 @@ function abrirFormProveedor(prov = null) {
       { texto: "Cancelar", clase: "btn-secondary" },
       { texto: editar ? "Guardar" : "Crear", clase: "btn-primary", onClick: async (cerrar) => {
           if (!inpNombre.value.trim()) return toast("Falta el nombre.", "error");
-          const datos = { nombre: inpNombre.value, cuit: inpCuit.value, condicion_fiscal: selCond.value, contacto: inpContacto.value, telefono: inpTel.value, email: inpEmail.value };
+          const datos = { nombre: inpNombre.value, cuit: inpCuit.value, condicion_fiscal: selCond.value, contacto: inpContacto.value, telefono: inpTel.value, email: inpEmail.value, rubros: Array.from(rubrosSel) };
           try {
             if (editar) await proveedoresRepo.actualizar(prov.id, datos);
             else await proveedoresRepo.crear(datos);
