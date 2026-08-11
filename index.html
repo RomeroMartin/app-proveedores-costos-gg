@@ -44,17 +44,21 @@
         <div class="mt-16">
           <button class="btn btn-primary btn-block" id="btn-login">Ingresar</button>
         </div>
+        <div style="text-align:center;margin-top:14px">
+          <a href="#" id="btn-olvide" style="font-size:.85rem;color:var(--verde);text-decoration:none;font-weight:500">¿Olvidaste tu contraseña?</a>
+        </div>
       </div>
 
     </div>
   </div>
 
   <script type="module">
-    import { login, redirigirSiYaLogeado } from "./js/auth.js";
+    import { login, redirigirSiYaLogeado, recuperarPassword } from "./js/auth.js";
 
     const pantallaCarga = document.getElementById("pantalla-carga");
     const contenido = document.getElementById("contenido");
     const btnLogin = document.getElementById("btn-login");
+    const btnOlvide = document.getElementById("btn-olvide");
     const msgLogin = document.getElementById("msg-login");
     const inputEmail = document.getElementById("email");
     const inputPass = document.getElementById("password");
@@ -87,9 +91,25 @@
         else mostrar(err.message || "Error al ingresar.");
       }
     }
-    function mostrar(txt) { msgLogin.textContent = txt; msgLogin.classList.add("show"); }
+    function mostrar(txt, tipo = "error") { msgLogin.className = "msg msg-" + tipo + " show"; msgLogin.textContent = txt; }
+
+    async function recuperar() {
+      const email = inputEmail.value.trim();
+      if (!email) { mostrar("Escribí tu correo arriba y volvé a tocar el enlace."); inputEmail.focus(); return; }
+      try {
+        await recuperarPassword(email);
+        mostrar("Te enviamos un correo a " + email + " para crear una nueva contraseña. Revisá también la carpeta de spam.", "ok");
+      } catch (err) {
+        const cod = err.code || "";
+        if (cod.includes("invalid-email")) mostrar("El correo no es válido.");
+        else if (cod.includes("user-not-found")) mostrar("No encontramos una cuenta con ese correo. Revisá que esté bien escrito.");
+        else if (cod.includes("too-many-requests")) mostrar("Demasiados intentos. Esperá unos minutos.");
+        else mostrar(err.message || "No se pudo enviar el correo.");
+      }
+    }
 
     btnLogin.addEventListener("click", intentarLogin);
+    btnOlvide.addEventListener("click", (e) => { e.preventDefault(); recuperar(); });
     [inputEmail, inputPass].forEach((i) => i.addEventListener("keydown", (e) => { if (e.key === "Enter") intentarLogin(); }));
   </script>
 
