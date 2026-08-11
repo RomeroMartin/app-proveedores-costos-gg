@@ -38,20 +38,48 @@ export async function render(main) {
 async function pintarLista(cont) {
   mostrarCargando(cont, "Cargando insumos…");
   await store.cargar(true);
-  const { insumos, proveedoresById } = store.get();
+  const { insumos, proveedores, proveedoresById } = store.get();
   limpiar(cont);
 
   const buscador = el("input", { class: "form-control buscador", placeholder: "Buscar insumo…", type: "search" });
-  const toolbar = el("div", { class: "toolbar" }, buscador,
-    el("span", { class: "text-muted", style: "font-size:.8rem" }, `${insumos.length} insumo(s)`));
+
+  const estiloSel = "flex:0 0 auto;min-width:145px;max-width:220px;font-size:.85rem";
+  const provsOrden = [...proveedores].sort((a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+  const selProv = el("select", { class: "form-control", style: estiloSel },
+    el("option", { value: "" }, "Todos los proveedores"),
+    ...provsOrden.map((p) => el("option", { value: p.id }, p.nombre)),
+    el("option", { value: "__sin__" }, "Sin proveedor"),
+  );
+  const selTipo = el("select", { class: "form-control", style: estiloSel },
+    el("option", { value: "" }, "Todos los tipos"),
+    ...Object.entries(MAGNITUDES).map(([k, v]) => el("option", { value: k }, v.nombre)),
+  );
+  const selEstado = el("select", { class: "form-control", style: estiloSel },
+    el("option", { value: "" }, "Precio: todos"),
+    el("option", { value: "ok" }, "Precio actualizado"),
+    el("option", { value: "old" }, "Precio desactualizado"),
+  );
+  const conteo = el("span", { class: "text-muted", style: "font-size:.8rem;margin-left:auto" }, "");
+
+  const toolbar = el("div", { class: "toolbar" }, buscador, selProv, selTipo, selEstado, conteo);
   cont.appendChild(toolbar);
 
   const tablaWrap = el("div", { class: "tabla-wrap" });
   cont.appendChild(tablaWrap);
 
-  function dibujar(filtro = "") {
-    const f = filtro.toLowerCase();
-    const filtrados = insumos.filter((i) => (i.nombre || "").toLowerCase().includes(f) || (i.codigo || "").toLowerCase().includes(f));
+  function dibujar() {
+    const f = buscador.value.toLowerCase().trim();
+    const pid = selProv.value, tipo = selTipo.value, est = selEstado.value;
+    const filtrados = insumos.filter((i) => {
+      if (f && !((i.nombre || "").toLowerCase().includes(f) || (i.codigo || "").toLowerCase().includes(f))) return false;
+      if (pid === "__sin__") { if (i.proveedor_habitual_id) return false; }
+      else if (pid && i.proveedor_habitual_id !== pid) return false;
+      if (tipo && i.magnitud !== tipo) return false;
+      if (est === "ok" && estaDesactualizado(i)) return false;
+      if (est === "old" && !estaDesactualizado(i)) return false;
+      return true;
+    });
+    conteo.textContent = `${filtrados.length} de ${insumos.length}`;
     if (!filtrados.length) {
       limpiar(tablaWrap);
       tablaWrap.appendChild(el("div", { class: "empty-state" }, el("p", {}, "No hay insumos que coincidan.")));
@@ -94,7 +122,7 @@ async function pintarLista(cont) {
       el("tbody", {}, ...filas),
     ));
   }
-  buscador.addEventListener("input", () => dibujar(buscador.value));
+  [buscador, selProv, selTipo, selEstado].forEach((elm) => elm.addEventListener("input", dibujar));
   dibujar();
 }
 
