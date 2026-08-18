@@ -21,9 +21,16 @@ Snippets para pegar en la **consola del navegador** (F12) estando logueado como
      precio de carta (PVP) desde la pestaña RESUMEN.
 
    Al terminar recalcula el costo de todas las recetas con el costeo real del app.
+3. **`cargar-movimientos-consola.js`** (opcional, para que el Tablero tenga vida) —
+   crea facturas en varios estados (impagas, parciales, pagadas) con
+   vencimientos vencidos y próximos, sus pagos (imputación FIFO/manual en
+   transacción con `increment`), historial de precios retroactivo para ~15
+   insumos (para ver la evolución de costos) y marca ~6 insumos con precio "sin
+   actualizar". Enciende todos los KPIs y el panel de Alertas del tablero.
 
-Ambos son **idempotentes**: no duplican lo que ya exista (comparan por nombre sin
-mayúsculas/acentos). Se pueden reejecutar.
+Los tres son **idempotentes**: no duplican lo que ya exista (comparan por nombre
+sin mayúsculas/acentos; en movimientos, si un proveedor ya tiene facturas de la
+demo no le crea más, así no infla la deuda). Se pueden reejecutar.
 
 ## Criterios de carga
 
