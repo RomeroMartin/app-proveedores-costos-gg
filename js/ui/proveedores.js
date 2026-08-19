@@ -103,14 +103,17 @@ async function pintarLista(cont) {
     el("option", { value: "" }, "Todos los rubros"),
     ...rubrosPresentes.map((r) => el("option", { value: r }, r)),
   );
-  // Siempre agrupado por rubro (A→Z). El orden sólo cambia la dirección de la
-  // deuda dentro de cada rubro.
+  // Orden: la tabla se ordena siempre por rubro (A→Z) y, dentro de cada rubro,
+  // por deuda en la dirección elegida.
   const selOrden = el("select", { class: "form-control", style: estiloSel },
     el("option", { value: "desc" }, "Deuda: mayor a menor"),
     el("option", { value: "asc" }, "Deuda: menor a mayor"),
   );
+  const btnLimpiar = el("button", { class: "btn btn-sm btn-secondary", onClick: () => {
+    buscador.value = ""; selRubro.value = ""; selOrden.value = "desc"; dibujar();
+  } }, "Limpiar filtros");
   const conteo = el("span", { class: "text-muted", style: "font-size:.8rem;margin-left:auto" }, "");
-  const botones = [buscador, selRubro, selOrden, conteo];
+  const botones = [buscador, selRubro, selOrden, btnLimpiar, conteo];
   if (puede(store.getRol(), "exportar")) {
     const btnExport = el("button", { class: "btn btn-sm btn-secondary", onClick: () => exportarDeuda(proveedores) },
       el("span", { html: ico("excel", 16) }), "Exportar deuda");
@@ -139,8 +142,12 @@ async function pintarLista(cont) {
       tablaWrap.appendChild(el("div", { class: "empty-state" }, el("p", {}, "No hay proveedores que coincidan.")));
       return;
     }
-    // Siempre agrupado por rubro (A→Z); dentro de cada rubro se ordena por deuda.
-    tablaWrap.appendChild(tablaAgrupada(filtrados, dir));
+    // Orden: por rubro principal (A→Z, "Sin rubro" al final) y, dentro de cada
+    // rubro, por deuda en la dirección elegida.
+    const rk = (p) => { const r = rubroPrincipalDe(p); return r === SIN_RUBRO ? "￿" : r.toLowerCase(); };
+    const ordenados = [...filtrados].sort((a, b) =>
+      rk(a).localeCompare(rk(b)) || (saldoDe(a) - saldoDe(b)) * dir);
+    tablaWrap.appendChild(tablaProveedores(ordenados));
   }
 
   [buscador, selRubro, selOrden].forEach((elm) => elm.addEventListener("input", dibujar));
@@ -153,10 +160,12 @@ function subRubrosSecundarios(p) {
   return sec.length ? el("div", { class: "celda-sub", style: "color:var(--texto-3)" }, "también: " + sec.join(" · ")) : null;
 }
 
-// Fila de proveedor (siempre dentro de su grupo de rubro).
+// Fila de proveedor con columna de Rubro (principal).
 function filaProveedor(p) {
   const saldo = saldoDe(p);
+  const principal = rubroPrincipalDe(p);
   return el("tr", {},
+    el("td", {}, el("span", { class: "celda-sub", style: "color:var(--verde);font-weight:600" }, principal)),
     el("td", {},
       el("div", { class: "celda-principal" }, p.nombre),
       el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`),
@@ -171,38 +180,16 @@ function filaProveedor(p) {
   );
 }
 
-// Tabla agrupada por rubro PRINCIPAL (rubros A→Z; "Sin rubro" al final). Cada
-// proveedor cae en un único grupo, así los subtotales cuadran con la deuda
-// total. `dir` ordena por deuda dentro de cada rubro (1 asc, -1 desc).
-function tablaAgrupada(proveedores, dir = -1) {
-  const grupos = new Map();
-  for (const p of proveedores) {
-    const r = rubroPrincipalDe(p);
-    if (!grupos.has(r)) grupos.set(r, []);
-    grupos.get(r).push(p);
-  }
-  const nombresRubro = [...grupos.keys()].sort((a, b) =>
-    a === SIN_RUBRO ? 1 : b === SIN_RUBRO ? -1 : a.localeCompare(b));
-
-  const tbody = el("tbody", {});
-  for (const r of nombresRubro) {
-    const lista = grupos.get(r).sort((a, b) => (saldoDe(a) - saldoDe(b)) * dir);
-    const subtotal = lista.reduce((a, p) => a + saldoDe(p), 0);
-    tbody.appendChild(el("tr", { class: "fila-grupo" },
-      el("td", { style: "font-weight:700;background:var(--bg-secondary)" },
-        `${r}  ·  ${lista.length}`),
-      el("td", { class: "num", style: "background:var(--bg-secondary)" },
-        el("span", { class: "badge " + badgeSaldo(subtotal) }, formatearCentavos(subtotal))),
-      el("td", { style: "background:var(--bg-secondary)" }, ""),
-    ));
-    for (const p of lista) tbody.appendChild(filaProveedor(p));
-  }
+// Tabla plana de proveedores con columna Rubro (ya viene ordenada).
+function tablaProveedores(proveedores) {
   return el("table", { class: "tabla" },
     el("thead", {}, el("tr", {},
+      el("th", {}, "Rubro"),
       el("th", {}, "Proveedor"),
       el("th", { class: "num" }, "Saldo deuda"),
       el("th", { class: "text-right" }, "Acciones"))),
-    tbody);
+    el("tbody", {}, ...proveedores.map(filaProveedor)),
+  );
 }
 
 function exportarDeuda(proveedores) {
