@@ -3,7 +3,7 @@
 // (Secciones 7.2 y 7.5)
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, iconoAyuda, kpi, tarjetaLista, filaLista } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, iconoAyuda, kpi } from "./helpers.js";
 import { formatearCentavos, pesosACentavos } from "../core/dinero.js";
 import { CONDICIONES_FISCALES, TIPOS_COMPROBANTE, ALICUOTAS_IVA, desglosarFactura, validarCuadraturaFactura } from "../core/fiscal.js";
 import { puede } from "../roles.js";
@@ -88,20 +88,6 @@ async function pintarLista(cont) {
       "Cantidad de proveedores activos cargados en el sistema."),
   ));
 
-  // ── Facturas próximas a vencer (detalle) ──
-  if (porVencer.length) {
-    cont.appendChild(tarjetaLista("Facturas próximas a vencer",
-      porVencer.slice(0, 8).map((x) => {
-        const prov = store.get().proveedoresById[x.f.proveedor_id];
-        return filaLista(
-          `${prov ? prov.nombre + " — " : ""}${x.f.tipo_comprobante} ${x.f.numero_factura || ""}`,
-          x.dias < 0 ? `vencida hace ${-x.dias}d` : `en ${x.dias}d`,
-          x.dias < 0 ? "badge-danger" : "badge-warn",
-          formatearCentavos(x.f.saldo_pendiente_centavos));
-      }),
-      "Facturas impagas que vencen en 7 días o menos (incluye las vencidas). Se muestran las 8 más urgentes."));
-  }
-
   if (!proveedores.length) {
     cont.appendChild(el("div", { class: "empty-state" }, el("p", {}, "Todavía no hay proveedores.")));
     return;
@@ -117,10 +103,11 @@ async function pintarLista(cont) {
     el("option", { value: "" }, "Todos los rubros"),
     ...rubrosPresentes.map((r) => el("option", { value: r }, r)),
   );
+  // Siempre agrupado por rubro (A→Z). El orden sólo cambia la dirección de la
+  // deuda dentro de cada rubro.
   const selOrden = el("select", { class: "form-control", style: estiloSel },
-    el("option", { value: "rubro" }, "Agrupar por rubro"),
-    el("option", { value: "deuda" }, "Ordenar por deuda (mayor primero)"),
-    el("option", { value: "nombre" }, "Ordenar por nombre (A→Z)"),
+    el("option", { value: "desc" }, "Deuda: mayor a menor"),
+    el("option", { value: "asc" }, "Deuda: menor a mayor"),
   );
   const conteo = el("span", { class: "text-muted", style: "font-size:.8rem;margin-left:auto" }, "");
   const botones = [buscador, selRubro, selOrden, conteo];
@@ -137,7 +124,7 @@ async function pintarLista(cont) {
   function dibujar() {
     const f = buscador.value.toLowerCase().trim();
     const rub = selRubro.value;
-    const orden = selOrden.value;
+    const dir = selOrden.value === "asc" ? 1 : -1;
 
     // Filtro por texto y por rubro principal.
     let filtrados = proveedores.filter((p) => {
@@ -152,30 +139,12 @@ async function pintarLista(cont) {
       tablaWrap.appendChild(el("div", { class: "empty-state" }, el("p", {}, "No hay proveedores que coincidan.")));
       return;
     }
-
-    if (orden === "rubro") {
-      tablaWrap.appendChild(tablaAgrupada(filtrados));
-    } else {
-      const ordenados = [...filtrados].sort(orden === "deuda"
-        ? (a, b) => saldoDe(b) - saldoDe(a)
-        : (a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
-      tablaWrap.appendChild(tablaPlana(ordenados));
-    }
+    // Siempre agrupado por rubro (A→Z); dentro de cada rubro se ordena por deuda.
+    tablaWrap.appendChild(tablaAgrupada(filtrados, dir));
   }
 
   [buscador, selRubro, selOrden].forEach((elm) => elm.addEventListener("input", dibujar));
   dibujar();
-}
-
-// Cabecera de tabla común.
-function encabezado(conRubro) {
-  return el("thead", {}, el("tr", {},
-    conRubro ? el("th", {}, "Rubro") : null,
-    el("th", {}, "Proveedor"),
-    el("th", {}, "Cond. fiscal"),
-    el("th", { class: "num" }, "Saldo deuda"),
-    el("th", { class: "text-right" }, "Acciones"),
-  ));
 }
 
 // Nodo con los rubros secundarios en segundo plano (o null si no hay).
@@ -184,17 +153,15 @@ function subRubrosSecundarios(p) {
   return sec.length ? el("div", { class: "celda-sub", style: "color:var(--texto-3)" }, "también: " + sec.join(" · ")) : null;
 }
 
-// Fila de proveedor. `mostrarRubro` agrega la columna Rubro (tabla plana).
-function filaProveedor(p, mostrarRubro) {
+// Fila de proveedor (siempre dentro de su grupo de rubro).
+function filaProveedor(p) {
   const saldo = saldoDe(p);
   return el("tr", {},
-    mostrarRubro ? el("td", { class: "celda-sub", style: "color:var(--verde);font-weight:600" }, rubroPrincipalDe(p)) : null,
     el("td", {},
       el("div", { class: "celda-principal" }, p.nombre),
       el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`),
       subRubrosSecundarios(p),
     ),
-    el("td", {}, el("span", { class: "badge badge-info" }, LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal)),
     el("td", { class: "num" }, el("span", { class: "badge " + badgeSaldo(saldo) }, formatearCentavos(saldo))),
     el("td", { class: "text-right", style: "white-space:nowrap" },
       el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirFicha(p) }, "Ver ficha"),
@@ -204,34 +171,25 @@ function filaProveedor(p, mostrarRubro) {
   );
 }
 
-// Tabla plana (ordenada por deuda o por nombre): muestra la columna Rubro principal.
-function tablaPlana(proveedores) {
-  return el("table", { class: "tabla" },
-    encabezado(true),
-    el("tbody", {}, ...proveedores.map((p) => filaProveedor(p, true))),
-  );
-}
-
-// Tabla agrupada por rubro PRINCIPAL: cada proveedor cae en un único grupo,
-// así los subtotales de deuda cuadran con la deuda total.
-function tablaAgrupada(proveedores) {
-  // Armar mapa rubro principal → proveedores.
+// Tabla agrupada por rubro PRINCIPAL (rubros A→Z; "Sin rubro" al final). Cada
+// proveedor cae en un único grupo, así los subtotales cuadran con la deuda
+// total. `dir` ordena por deuda dentro de cada rubro (1 asc, -1 desc).
+function tablaAgrupada(proveedores, dir = -1) {
   const grupos = new Map();
   for (const p of proveedores) {
     const r = rubroPrincipalDe(p);
     if (!grupos.has(r)) grupos.set(r, []);
     grupos.get(r).push(p);
   }
-  // Orden de los rubros: alfabético, "Sin rubro" al final.
   const nombresRubro = [...grupos.keys()].sort((a, b) =>
     a === SIN_RUBRO ? 1 : b === SIN_RUBRO ? -1 : a.localeCompare(b));
 
   const tbody = el("tbody", {});
   for (const r of nombresRubro) {
-    const lista = grupos.get(r).sort((a, b) => saldoDe(b) - saldoDe(a));
+    const lista = grupos.get(r).sort((a, b) => (saldoDe(a) - saldoDe(b)) * dir);
     const subtotal = lista.reduce((a, p) => a + saldoDe(p), 0);
     tbody.appendChild(el("tr", { class: "fila-grupo" },
-      el("td", { colspan: "2", style: "font-weight:700;background:var(--bg-secondary)" },
+      el("td", { style: "font-weight:700;background:var(--bg-secondary)" },
         `${r}  ·  ${lista.length}`),
       el("td", { class: "num", style: "background:var(--bg-secondary)" },
         el("span", { class: "badge " + badgeSaldo(subtotal) }, formatearCentavos(subtotal))),
@@ -239,7 +197,12 @@ function tablaAgrupada(proveedores) {
     ));
     for (const p of lista) tbody.appendChild(filaProveedor(p));
   }
-  return el("table", { class: "tabla" }, encabezado(false), tbody);
+  return el("table", { class: "tabla" },
+    el("thead", {}, el("tr", {},
+      el("th", {}, "Proveedor"),
+      el("th", { class: "num" }, "Saldo deuda"),
+      el("th", { class: "text-right" }, "Acciones"))),
+    tbody);
 }
 
 function exportarDeuda(proveedores) {

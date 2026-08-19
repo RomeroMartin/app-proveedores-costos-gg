@@ -100,9 +100,10 @@ Gerente crea los perfiles del resto con su rol.
 
 ## Estado
 
-`v0.5.0` — Núcleo · Insumos (historial de precios, gráfico y alertas) · Costos
-(recetas, rentabilidad y platos menos rentables) · Proveedores (cuadro por rubro
-con filtros, deuda y vencimientos) · Facturas/Pagos · Usuarios y roles · Export.
+`v0.5.1` — Núcleo · Insumos (historial de precios, gráfico y alertas) · Costos
+(recetas con búsqueda y orden, sector de venta y rentabilidad por sector) ·
+Proveedores (cuadro agrupado por rubro con filtros y deuda) · Facturas/Pagos ·
+Usuarios y roles · Export.
 
 > El **Tablero** se eliminó en v0.5.0: sus KPI se repartieron en cada tag
 > (Proveedores: deuda y vencimientos; Costos: rentabilidad; Insumos: precios).

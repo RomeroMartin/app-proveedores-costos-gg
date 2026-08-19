@@ -16,10 +16,19 @@ import * as store from "../store.js";
 
 const UMBRAL_FOODCOST = 35; // % — Sección 6.5
 
+// Sectores de venta (a qué línea de la cocina pertenece el plato).
+export const SECTORES_VENTA = ["Cocina", "Parrilla", "Fríos", "Pizzería", "Barra", "Pastelería"];
+const SIN_SECTOR = "Sin sector";
+function sectorDe(r) { return r.sector_venta || SIN_SECTOR; }
+
 function claseFoodCost(pct) {
   if (pct <= 30) return "foodcost-ok";
   if (pct <= UMBRAL_FOODCOST) return "foodcost-warn";
   return "foodcost-danger";
+}
+
+function badgeFoodCost(pct) {
+  return pct > UMBRAL_FOODCOST ? "badge-danger" : (pct > 30 ? "badge-warn" : "badge-ok");
 }
 
 export async function render(main) {
@@ -68,13 +77,34 @@ async function pintar(cont) {
       "Cantidad de preparaciones (sub-recetas de uso interno) cargadas."),
   ));
 
-  // ── Platos menos rentables + exportación ──
-  const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 10);
-  cont.appendChild(tarjetaLista("Platos menos rentables", peores.length
-    ? peores.map((x) => filaLista(x.p.nombre, formatearPorcentaje(x.r.foodCostPct, 1),
-        x.r.foodCostPct > UMBRAL_FOODCOST ? "badge-danger" : (x.r.foodCostPct > 30 ? "badge-warn" : "badge-ok")))
+  // ── Dos columnas: platos menos rentables + rentabilidad por sector ──
+  const dosCols = el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px" });
+  cont.appendChild(dosCols);
+
+  // Platos menos rentables (top 5).
+  const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 5);
+  dosCols.appendChild(tarjetaLista("Platos menos rentables", peores.length
+    ? peores.map((x) => filaLista(x.p.nombre, formatearPorcentaje(x.r.foodCostPct, 1), badgeFoodCost(x.r.foodCostPct)))
     : [vacioLista("Sin platos con precio cargado.")],
-    "Los 10 platos con mayor costo respecto de su precio de venta: los que menos margen te dejan."));
+    "Los 5 platos con mayor costo respecto de su precio de venta: los que menos margen te dejan."));
+
+  // Rentabilidad promedio por sector de venta.
+  const porSector = new Map();
+  for (const x of rents) {
+    const s = sectorDe(x.p);
+    if (!porSector.has(s)) porSector.set(s, []);
+    porSector.get(s).push(x.r.foodCostPct);
+  }
+  const sectoresOrden = [...porSector.keys()].sort((a, b) =>
+    a === SIN_SECTOR ? 1 : b === SIN_SECTOR ? -1 : a.localeCompare(b));
+  dosCols.appendChild(tarjetaLista("Costo promedio por sector", sectoresOrden.length
+    ? sectoresOrden.map((s) => {
+        const arr = porSector.get(s);
+        const prom = arr.reduce((a, v) => a + v, 0) / arr.length;
+        return filaLista(s, formatearPorcentaje(prom, 1), badgeFoodCost(prom), `${arr.length} plato${arr.length === 1 ? "" : "s"}`);
+      })
+    : [vacioLista("Asigná un sector a tus platos para ver esto.")],
+    "Costo promedio (con IVA) sobre venta de los platos de cada sector de venta. Sólo cuenta platos con precio cargado."));
 
   if (puede(store.getRol(), "exportar")) {
     cont.appendChild(el("div", { class: "card", style: "margin-bottom:14px" },
@@ -94,7 +124,7 @@ function exportarRent(platos) {
       const costo = store.costoDeReceta(p) || 0;
       const r = rentabilidad(p, costo);
       return {
-        Codigo: p.codigo || "", Plato: p.nombre,
+        Codigo: p.codigo || "", Plato: p.nombre, Sector: p.sector_venta || "",
         "Costo c/IVA ($)": costo / 100,
         "Precio neto ($)": Math.round(r.precioNetoCentavos) / 100,
         "Precio carta ($)": (p.precio_venta_publico_centavos || 0) / 100,
@@ -139,26 +169,55 @@ function seccion(titulo, lista, esPlato) {
     wrap.appendChild(el("div", { class: "empty-state" }, el("p", {}, "Todavía no hay recetas de este tipo.")));
     return wrap;
   }
-  const tabla = el("div", { class: "tabla-wrap" });
-  const filas = lista.map((r) => {
-    const costo = store.costoDeReceta(r);
-    let rentCols;
-    if (esPlato) {
-      const rent = rentabilidad(r, costo || 0);
-      rentCols = [
-        el("td", { class: "num" }, formatearCentavos(r.precio_venta_publico_centavos)),
-        el("td", { class: "num" },
-          el("span", { class: `badge ${costo == null ? "badge-muted" : claseFoodCost(rent.foodCostPct).replace("foodcost-", "badge-").replace("badge-ok", "badge-ok")}` },
-            costo == null ? "—" : formatearPorcentaje(rent.foodCostPct, 1))),
-      ];
-    } else {
-      rentCols = [
-        el("td", { class: "num" }, `${r.rendimiento_cantidad} ${r.rendimiento_unidad}`),
-        el("td", { class: "num" }, costo == null ? "—" : `${formatearCentavos(Math.round((costo || 0) / (r.rendimiento_cantidad || 1)))}/${r.rendimiento_unidad}`),
-      ];
-    }
+
+  // Precalcular costo y food cost (platos) de cada receta una sola vez.
+  const datos = lista.map((r) => {
+    const costo = store.costoDeReceta(r); // null = revisar (ciclo o insumo faltante)
+    const tienePrecio = esPlato && (r.precio_venta_publico_centavos || 0) > 0;
+    const rent = esPlato ? rentabilidad(r, costo || 0) : null;
+    const costoUnidad = !esPlato && costo != null ? Math.round(costo / (r.rendimiento_cantidad || 1)) : null;
+    return { r, costo, rent, costoUnidad, foodCost: tienePrecio ? rent.foodCostPct : null };
+  });
+
+  // ── Toolbar: buscador + orden [+ sector, sólo platos] ──
+  const estiloSel = "flex:0 0 auto;min-width:150px;max-width:240px;font-size:.85rem";
+  const buscador = el("input", { class: "form-control buscador", placeholder: esPlato ? "Buscar plato…" : "Buscar preparación…", type: "search" });
+  const ordenOpts = esPlato
+    ? [["nombre", "Nombre (A→Z)"], ["costo_desc", "Costo (mayor a menor)"], ["costo_asc", "Costo (menor a mayor)"], ["rent_peor", "Rentabilidad: peor primero"], ["rent_mejor", "Rentabilidad: mejor primero"]]
+    : [["nombre", "Nombre (A→Z)"], ["costo_desc", "Costo/u. (mayor a menor)"], ["costo_asc", "Costo/u. (menor a mayor)"]];
+  const selOrden = el("select", { class: "form-control", style: estiloSel }, ...ordenOpts.map(([v, t]) => el("option", { value: v }, t)));
+  let selSector = null;
+  if (esPlato) {
+    const sectoresPresentes = [...new Set(lista.map(sectorDe))].sort((a, b) => a === SIN_SECTOR ? 1 : b === SIN_SECTOR ? -1 : a.localeCompare(b));
+    selSector = el("select", { class: "form-control", style: estiloSel },
+      el("option", { value: "" }, "Todos los sectores"),
+      ...sectoresPresentes.map((s) => el("option", { value: s }, s)));
+  }
+  const conteo = el("span", { class: "text-muted", style: "font-size:.8rem;margin-left:auto" }, "");
+  const controles = [buscador, selOrden];
+  if (selSector) controles.push(selSector);
+  controles.push(conteo);
+  wrap.appendChild(el("div", { class: "toolbar" }, ...controles));
+
+  const tablaWrap = el("div", { class: "tabla-wrap" });
+  wrap.appendChild(tablaWrap);
+
+  function filaDe(d) {
+    const { r, costo, rent } = d;
+    const rentCols = esPlato
+      ? [
+          el("td", { class: "num" }, formatearCentavos(r.precio_venta_publico_centavos)),
+          el("td", { class: "num" },
+            el("span", { class: `badge ${(costo == null || d.foodCost == null) ? "badge-muted" : badgeFoodCost(rent.foodCostPct)}` },
+              (costo == null || d.foodCost == null) ? "—" : formatearPorcentaje(rent.foodCostPct, 1))),
+        ]
+      : [
+          el("td", { class: "num" }, `${r.rendimiento_cantidad} ${r.rendimiento_unidad}`),
+          el("td", { class: "num" }, costo == null ? "—" : `${formatearCentavos(d.costoUnidad)}/${r.rendimiento_unidad}`),
+        ];
     return el("tr", {},
-      el("td", {}, el("div", { class: "celda-principal" }, r.nombre), el("div", { class: "celda-sub" }, r.codigo || "")),
+      el("td", {}, el("div", { class: "celda-principal" }, r.nombre),
+        el("div", { class: "celda-sub" }, `${r.codigo || ""}${esPlato && r.sector_venta ? " · " + r.sector_venta : ""}`)),
       el("td", { class: "num" }, costo == null ? el("span", { class: "badge badge-danger" }, "revisar") : formatearCentavos(costo)),
       ...rentCols,
       el("td", { class: "text-right", style: "white-space:nowrap" },
@@ -170,18 +229,53 @@ function seccion(titulo, lista, esPlato) {
           el("span", { html: ico("basura", 15) })),
       ),
     );
-  });
-  tabla.appendChild(el("table", { class: "tabla" },
-    el("thead", {}, el("tr", {},
-      el("th", {}, "Receta"),
-      el("th", { class: "num" }, "Costo (c/IVA)"),
-      esPlato ? el("th", { class: "num" }, "Precio carta") : el("th", { class: "num" }, "Rinde"),
-      esPlato ? el("th", { class: "num" }, "Costo s/ venta") : el("th", { class: "num" }, "Costo / u."),
-      el("th", { class: "text-right" }, "Acciones"),
-    )),
-    el("tbody", {}, ...filas),
-  ));
-  wrap.appendChild(tabla);
+  }
+
+  function dibujar() {
+    const f = buscador.value.toLowerCase().trim();
+    const orden = selOrden.value;
+    const sec = selSector ? selSector.value : "";
+    const arr = datos.filter((d) => {
+      if (f && !((d.r.nombre || "").toLowerCase().includes(f) || (d.r.codigo || "").toLowerCase().includes(f))) return false;
+      if (sec && sectorDe(d.r) !== sec) return false;
+      return true;
+    });
+    // Los que están "revisar" (sin costo) o sin precio se van al final del orden numérico.
+    const costoKey = (d) => esPlato ? d.costo : d.costoUnidad;
+    arr.sort((a, b) => {
+      if (orden === "nombre") return (a.r.nombre || "").localeCompare(b.r.nombre || "");
+      if (orden === "costo_desc" || orden === "costo_asc") {
+        const av = costoKey(a), bv = costoKey(b);
+        if (av == null) return bv == null ? 0 : 1;
+        if (bv == null) return -1;
+        return orden === "costo_desc" ? bv - av : av - bv;
+      }
+      const af = a.foodCost, bf = b.foodCost; // rentabilidad (sólo platos con precio)
+      if (af == null) return bf == null ? 0 : 1;
+      if (bf == null) return -1;
+      return orden === "rent_peor" ? bf - af : af - bf; // peor = mayor food cost primero
+    });
+    conteo.textContent = `${arr.length} de ${datos.length}`;
+    limpiar(tablaWrap);
+    if (!arr.length) {
+      tablaWrap.appendChild(el("div", { class: "empty-state" }, el("p", {}, "No hay recetas que coincidan.")));
+      return;
+    }
+    tablaWrap.appendChild(el("table", { class: "tabla" },
+      el("thead", {}, el("tr", {},
+        el("th", {}, "Receta"),
+        el("th", { class: "num" }, "Costo (c/IVA)"),
+        esPlato ? el("th", { class: "num" }, "Precio carta") : el("th", { class: "num" }, "Rinde"),
+        esPlato ? el("th", { class: "num" }, "Costo s/ venta") : el("th", { class: "num" }, "Costo / u."),
+        el("th", { class: "text-right" }, "Acciones"),
+      )),
+      el("tbody", {}, ...arr.map(filaDe)),
+    ));
+  }
+
+  [buscador, selOrden].forEach((e) => e.addEventListener("input", dibujar));
+  if (selSector) selSector.addEventListener("input", dibujar);
+  dibujar();
   return wrap;
 }
 
@@ -205,6 +299,9 @@ function abrirEditor(receta, tipo) {
   const inpPrecio = el("input", { class: "form-control", placeholder: "Precio de carta (con IVA)", inputmode: "decimal", value: "" });
   const selAliVenta = el("select", { class: "form-control" },
     ...ALICUOTAS_IVA.filter((a) => a > 0).map((a) => el("option", { value: a, selected: editar && receta.alicuota_venta === a ? "selected" : (a === 21 ? "selected" : null) }, `${a} %`)));
+  const selSector = el("select", { class: "form-control" },
+    el("option", { value: "" }, "— Sin sector —"),
+    ...SECTORES_VENTA.map((s) => el("option", { value: s, selected: editar && receta.sector_venta === s ? "selected" : null }, s)));
 
   const listaIng = el("div", {});
   const panelRent = el("div", { class: "card", style: "background:var(--bg-secondary);box-shadow:none" });
@@ -296,11 +393,15 @@ function abrirEditor(receta, tipo) {
   [inpPrecio, selAliVenta, inpRendCant, inpRendUnidad].forEach((n) => n.addEventListener("input", refrescarRent));
   if (editar && tipo === "plato") inpPrecio.value = (receta.precio_venta_publico_centavos / 100).toString().replace(".", ",");
 
-  const camposPlato = tipo === "plato" ? el("div", { class: "form-row" },
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Precio de carta (con IVA)",
-      iconoAyuda("El precio final de venta al público, con IVA incluido (tal cual figura en la carta).")), inpPrecio),
-    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota de venta",
-      iconoAyuda("El IVA con el que se vende el plato (normalmente 21%). Se usa para separar el neto del precio de carta.")), selAliVenta),
+  const camposPlato = tipo === "plato" ? el("div", {},
+    el("div", { class: "form-row" },
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Precio de carta (con IVA)",
+        iconoAyuda("El precio final de venta al público, con IVA incluido (tal cual figura en la carta).")), inpPrecio),
+      el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Alícuota de venta",
+        iconoAyuda("El IVA con el que se vende el plato (normalmente 21%). Se usa para separar el neto del precio de carta.")), selAliVenta),
+    ),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Sector de venta",
+      iconoAyuda("A qué línea de la cocina pertenece el plato (cocina, parrilla, fríos…). Sirve para filtrar y comparar la rentabilidad promedio de cada sector.")), selSector),
   ) : null;
 
   const form = el("div", {},
@@ -339,6 +440,7 @@ function abrirEditor(receta, tipo) {
             rendimiento_unidad: inpRendUnidad.value || "un",
             precio_venta_publico_centavos: tipo === "plato" ? pesosACentavos(inpPrecio.value) : 0,
             alicuota_venta: tipo === "plato" ? Number(selAliVenta.value) : 0,
+            sector_venta: tipo === "plato" ? selSector.value : "",
             ingredientes,
           };
           const costo = costoActual() || 0;
@@ -388,7 +490,7 @@ function imprimirFicha(receta) {
       el("span", { class: "fecha" }, fechaCorta(new Date())),
     ),
     el("h2", { style: "margin-bottom:4px" }, receta.nombre),
-    el("p", { class: "text-muted", style: "margin-bottom:14px" }, `${receta.codigo || ""} · ${receta.tipo} · rinde ${receta.rendimiento_cantidad} ${receta.rendimiento_unidad}`),
+    el("p", { class: "text-muted", style: "margin-bottom:14px" }, `${receta.codigo || ""} · ${receta.tipo} · rinde ${receta.rendimiento_cantidad} ${receta.rendimiento_unidad}${receta.tipo === "plato" && receta.sector_venta ? " · " + receta.sector_venta : ""}`),
     el("div", { class: "tabla-wrap" },
       el("table", { class: "tabla" },
         el("thead", {}, el("tr", {}, el("th", {}, "Ingrediente"), el("th", { class: "num" }, "Cantidad"))),

@@ -59,6 +59,8 @@ export async function crear(datos, costoCalculadoCentavos = 0) {
     rendimiento_unidad: datos.rendimiento_unidad || "un",
     precio_venta_publico_centavos: Number(datos.precio_venta_publico_centavos) || 0,
     alicuota_venta: Number(datos.alicuota_venta) || 0,
+    // Sector de venta (cocina, parrilla, fríos, …); sólo aplica a platos.
+    sector_venta: (datos.sector_venta || "").trim(),
     ingredientes: datos.ingredientes || [],
     costo_calculado_centavos: Math.round(costoCalculadoCentavos) || 0,
     fecha_calculo: serverTimestamp(),
@@ -77,6 +79,7 @@ export async function actualizar(id, datos, costoCalculadoCentavos = 0) {
     rendimiento_unidad: datos.rendimiento_unidad || "un",
     precio_venta_publico_centavos: Number(datos.precio_venta_publico_centavos) || 0,
     alicuota_venta: Number(datos.alicuota_venta) || 0,
+    sector_venta: (datos.sector_venta || "").trim(),
     ingredientes: datos.ingredientes || [],
     costo_calculado_centavos: Math.round(costoCalculadoCentavos) || 0,
     fecha_calculo: serverTimestamp(),
