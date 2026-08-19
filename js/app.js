@@ -7,18 +7,18 @@ import { APP_VERSION } from "./version.js";
 import { $, el, ico } from "./ui/helpers.js";
 import { puede, badgeRol } from "./roles.js";
 import * as store from "./store.js";
-import * as dashboard from "./ui/dashboard.js";
 import * as proveedores from "./ui/proveedores.js";
 import * as insumos from "./ui/insumos.js";
 import * as escandallos from "./ui/escandallos.js";
 import * as usuarios from "./ui/usuarios.js";
 
 // Cada ruta declara la capacidad que exige (roles.js decide quién la ve).
+// El Tablero se eliminó en v0.5.0: sus KPI se repartieron en Proveedores
+// (deuda/vencimientos), Costos (rentabilidad) e Insumos (precios).
 const RUTAS = [
-  { hash: "dashboard", label: "Tablero", icono: "dashboard", cap: "ver_dashboard", render: dashboard.render },
+  { hash: "proveedores", label: "Proveedores", icono: "proveedores", cap: "ver_proveedores", render: proveedores.render },
   { hash: "costos", label: "Costos", icono: "costos", cap: "ver_costos", render: escandallos.render },
   { hash: "insumos", label: "Insumos", icono: "insumos", cap: "ver_insumos", render: insumos.render },
-  { hash: "proveedores", label: "Proveedores", icono: "proveedores", cap: "ver_proveedores", render: proveedores.render },
   { hash: "usuarios", label: "Usuarios", icono: "usuarios", cap: "gestionar_usuarios", render: usuarios.render },
 ];
 
@@ -59,7 +59,7 @@ function construirShell(usuario) {
   const main = el("main", { class: "main" });
   app.appendChild(el("div", { class: "layout" }, nav, main));
 
-  const inicio = rutas.length ? rutas[0].hash : "dashboard";
+  const inicio = rutas.length ? rutas[0].hash : "proveedores";
 
   function marcarActivo(hash) {
     links.forEach((l) => l.classList.toggle("active", l.dataset.hash === hash));

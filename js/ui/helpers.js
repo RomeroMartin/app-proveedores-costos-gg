@@ -147,6 +147,45 @@ export function iconoAyuda(texto) {
     "i", el("span", { class: "ayuda-tip" }, texto));
 }
 
+// ── Componentes de KPI y tarjetas de resumen ──────────────────
+// Antes vivían en ui/dashboard.js. Al eliminar el Tablero (v0.5.0) los KPI se
+// repartieron entre Proveedores, Costos e Insumos, así que estos ayudantes se
+// mudaron acá para poder reutilizarlos desde cualquier pantalla.
+
+/** Ícono ⓘ con cartel, para la esquina de una tarjeta o KPI. */
+export function ayudaTip(texto) {
+  return el("button", { class: "ayuda", type: "button", "aria-label": "Qué muestra esta tarjeta" },
+    "i", el("span", { class: "ayuda-tip" }, texto));
+}
+
+/** Tarjeta KPI: etiqueta + valor grande + subtítulo opcional + tono (danger/warn/ok). */
+export function kpi(label, valor, sub = "", tono = "", ayudaTxt = "") {
+  return el("div", { class: `kpi ${tono}` },
+    ayudaTxt ? ayudaTip(ayudaTxt) : null,
+    el("div", { class: "kpi-label" }, label),
+    el("div", { class: "kpi-value" }, valor),
+    sub ? el("div", { class: "kpi-sub" }, sub) : null);
+}
+
+/** Tarjeta con título y una lista de filas (u otros nodos). */
+export function tarjetaLista(titulo, hijos, ayudaTxt = "") {
+  return el("div", { class: "card" },
+    ayudaTxt ? ayudaTip(ayudaTxt) : null,
+    el("p", { class: "card-title" }, titulo), ...hijos);
+}
+
+/** Fila de una tarjetaLista: nombre + valor en badge, con subtítulo opcional. */
+export function filaLista(nombre, valor, badgeCls, sub) {
+  return el("div", { class: "flex items-center justify-between", style: "padding:9px 0;border-bottom:1px solid var(--borde);font-size:.88rem;gap:10px" },
+    el("div", { class: "grow" }, el("div", { style: "font-weight:600" }, nombre), sub ? el("div", { class: "celda-sub" }, sub) : null),
+    el("span", { class: `badge ${badgeCls || "badge-muted"}` }, valor));
+}
+
+/** Texto de "sin datos" dentro de una tarjetaLista. */
+export function vacioLista(txt) {
+  return el("p", { class: "form-hint", style: "padding:8px 0" }, txt);
+}
+
 // ── Gráfico de líneas SVG (sin librerías) ─────────────────────
 const SVGNS = "http://www.w3.org/2000/svg";
 function svgEl(tag, attrs) {

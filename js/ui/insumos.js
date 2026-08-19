@@ -2,7 +2,7 @@
 // ui/insumos.js — Pantalla de Insumos / Materia Prima (Sección 7.3)
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, graficoLineas, iconoAyuda } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, graficoLineas, iconoAyuda, kpi, tarjetaLista, filaLista } from "./helpers.js";
 import { formatearCentavos, formatearPorcentaje, pesosACentavos } from "../core/dinero.js";
 import { MAGNITUDES, UNIDADES_POR_MAGNITUD, unidadBaseDe, convertirAUnidadBase, costoNetoPorUnidadBase } from "../core/unidades.js";
 import { ALICUOTAS_IVA } from "../core/fiscal.js";
@@ -18,6 +18,12 @@ function estaDesactualizado(insumo) {
   const d = f && f.toDate ? f.toDate() : null;
   if (!d) return false;
   return (Date.now() - d.getTime()) / 86400000 > DIAS_DESACTUALIZADO;
+}
+
+function diasDesde(ts) {
+  const d = ts && ts.toDate ? ts.toDate() : null;
+  if (!d) return Infinity;
+  return Math.floor((Date.now() - d.getTime()) / 86400000);
 }
 
 export async function render(main) {
@@ -41,6 +47,27 @@ async function pintarLista(cont) {
   await store.cargar(true);
   const { insumos, proveedores, proveedoresById } = store.get();
   limpiar(cont);
+
+  // ── KPIs (antes vivían en el Tablero) ──
+  const desactualizados = insumos.filter((i) => estaDesactualizado(i));
+  const rubrosCount = new Set(insumos.map((i) => i.rubro).filter(Boolean)).size;
+  cont.appendChild(el("div", { class: "kpi-grid", style: "margin-bottom:14px" },
+    kpi("Insumos", String(insumos.length), "materia prima", "",
+      "Cantidad de insumos (materia prima) cargados en el sistema."),
+    kpi("Precios desactualizados", String(desactualizados.length), `hace +${DIAS_DESACTUALIZADO} días`, desactualizados.length ? "warn" : "ok",
+      `Insumos cuyo precio no se actualiza hace más de ${DIAS_DESACTUALIZADO} días. Conviene revisarlos.`),
+    kpi("Rubros", String(rubrosCount), "distintos", "",
+      "Cantidad de rubros distintos usados por tus insumos."),
+  ));
+
+  // ── Alertas de precios desactualizados ──
+  if (desactualizados.length) {
+    const orden = [...desactualizados].sort((a, b) => diasDesde(b.fecha_ultimo_precio) - diasDesde(a.fecha_ultimo_precio));
+    cont.appendChild(tarjetaLista(`Precios a revisar (${desactualizados.length})`,
+      orden.slice(0, 8).map((i) => filaLista(i.nombre, `hace ${diasDesde(i.fecha_ultimo_precio)}d`, "badge-warn",
+        `${i.codigo || ""}${i.rubro ? " · " + i.rubro : ""}`)),
+      `Insumos con precio sin actualizar hace más de ${DIAS_DESACTUALIZADO} días. Se muestran los 8 más atrasados.`));
+  }
 
   const buscador = el("input", { class: "form-control buscador", placeholder: "Buscar insumo…", type: "search" });
 

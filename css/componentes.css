@@ -151,6 +151,8 @@ table.tabla tbody tr:hover { background: var(--bg-secondary); }
 table.tabla td.num, table.tabla th.num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
 table.tabla .celda-principal { font-weight: 600; color: var(--texto); }
 table.tabla .celda-sub { font-size: 0.76rem; color: var(--texto-3); }
+table.tabla tfoot td { padding: 11px 14px; border-top: 2px solid var(--borde); background: var(--bg-secondary); }
+table.tabla tr.fila-grupo:hover td { background: var(--bg-secondary); }
 
 /* ── Toolbar (buscador + acciones) ─────────────────────────── */
 .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }

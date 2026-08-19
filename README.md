@@ -91,7 +91,7 @@ En Windows, ver el método probado en la Sección 11 de la especificación.
 
 ## Roles
 
-- **Gerente:** acceso total (Dashboard, Costos/rentabilidad, precios de venta, anulación de pagos, gestión de usuarios, exportación).
+- **Gerente:** acceso total (Costos/rentabilidad, precios de venta, anulación de pagos, gestión de usuarios, exportación).
 - **Cargador:** carga operativa (Insumos y actualización de precios, Proveedores, facturas y pagos). No ve rentabilidad ni gestiona usuarios.
 
 Los perfiles viven en la colección `usuarios/{uid}`. Un usuario sin perfil se
@@ -100,6 +100,12 @@ Gerente crea los perfiles del resto con su rol.
 
 ## Estado
 
-`v0.2.0` — Núcleo · Insumos (con historial de precios y gráfico) · Costos
-(recetas y rentabilidad) · Proveedores/Facturas/Pagos · Dashboard · Usuarios y
-roles · Export.
+`v0.5.0` — Núcleo · Insumos (historial de precios, gráfico y alertas) · Costos
+(recetas, rentabilidad y platos menos rentables) · Proveedores (cuadro por rubro
+con filtros, deuda y vencimientos) · Facturas/Pagos · Usuarios y roles · Export.
+
+> El **Tablero** se eliminó en v0.5.0: sus KPI se repartieron en cada tag
+> (Proveedores: deuda y vencimientos; Costos: rentabilidad; Insumos: precios).
+> La pantalla **Proveedores** replica el cuadro que administración lleva en
+> Excel: agrupado por rubro → proveedor → deuda, con filtros por rubro, deuda y
+> nombre, y una ficha por proveedor con facturas y pagos (facturado vs pagado).

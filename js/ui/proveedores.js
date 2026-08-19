@@ -3,7 +3,7 @@
 // (Secciones 7.2 y 7.5)
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, iconoAyuda } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, fechaCorta, esc, ico, iconoAyuda, kpi, tarjetaLista, filaLista } from "./helpers.js";
 import { formatearCentavos, pesosACentavos } from "../core/dinero.js";
 import { CONDICIONES_FISCALES, TIPOS_COMPROBANTE, ALICUOTAS_IVA, desglosarFactura, validarCuadraturaFactura } from "../core/fiscal.js";
 import { puede } from "../roles.js";
@@ -11,19 +11,35 @@ import { RUBROS } from "../core/rubros.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
 import * as facturasRepo from "../data/facturasRepo.js";
 import * as pagosRepo from "../data/pagosRepo.js";
+import { exportarExcel } from "../export/excel.js";
 import * as store from "../store.js";
 
 const LABEL_COND = { responsable_inscripto: "Resp. Inscripto", monotributo: "Monotributo", exento: "Exento" };
 const LABEL_METODO = { efectivo: "Efectivo", transferencia: "Transferencia", cheque: "Cheque", echeq: "e-Cheq", otro: "Otro" };
+const SIN_RUBRO = "Sin rubro";
+const DIAS_POR_VENCER = 7;
+
+function saldoDe(p) { return Number(p.saldo_total_deuda_centavos) || 0; }
+function diasHasta(ts) {
+  const d = ts && ts.toDate ? ts.toDate() : null;
+  if (!d) return null;
+  return Math.ceil((d.getTime() - Date.now()) / 86400000);
+}
+function badgeSaldo(saldo) {
+  return saldo > 0 ? "badge-danger" : (saldo < 0 ? "badge-ok" : "badge-muted");
+}
 
 export async function render(main) {
   main.innerHTML = "";
   main.appendChild(el("div", { class: "page-header" },
     el("div", {},
       el("div", { class: "page-title" }, "Proveedores"),
-      el("div", { class: "page-subtitle" }, "Cuentas corrientes, facturas y pagos."),
+      el("div", { class: "page-subtitle" }, "Cuenta corriente por rubro: deuda, facturas y pagos."),
     ),
-    el("button", { class: "btn btn-primary", onClick: () => abrirFormProveedor() }, el("span", { html: ico("mas", 16) }), "Nuevo proveedor"),
+    el("div", { class: "flex gap-8" },
+      el("button", { class: "btn btn-secondary", onClick: () => render(main) }, el("span", { html: ico("refrescar", 16) }), "Refrescar"),
+      el("button", { class: "btn btn-primary", onClick: () => abrirFormProveedor() }, el("span", { html: ico("mas", 16) }), "Nuevo proveedor"),
+    ),
   ));
   const cont = el("div", {});
   main.appendChild(cont);
@@ -34,37 +50,197 @@ async function pintarLista(cont) {
   mostrarCargando(cont, "Cargando proveedores…");
   await store.cargar(true);
   const { proveedores } = store.get();
+  // Facturas pendientes globales (para los KPI). Puede fallar si la colección
+  // está vacía o falta el índice; en ese caso seguimos sin ese dato.
+  let pendientes = [];
+  try { pendientes = await facturasRepo.pendientesGlobal(); }
+  catch (_e) { /* colección vacía o índice faltante */ }
   limpiar(cont);
 
-  const totalDeuda = proveedores.reduce((a, p) => a + (Number(p.saldo_total_deuda_centavos) || 0), 0);
-  cont.appendChild(el("div", { class: "kpi-grid", style: "margin-bottom:16px" },
-    el("div", { class: "kpi danger" }, el("div", { class: "kpi-label" }, "Deuda total"), el("div", { class: "kpi-value" }, formatearCentavos(totalDeuda))),
-    el("div", { class: "kpi" }, el("div", { class: "kpi-label" }, "Proveedores"), el("div", { class: "kpi-value" }, String(proveedores.length))),
+  // ── KPIs (antes vivían en el Tablero) ──
+  const totalDeuda = proveedores.reduce((a, p) => a + saldoDe(p), 0);
+  const conDeuda = proveedores.filter((p) => saldoDe(p) > 0).length;
+  const porVencer = pendientes
+    .map((f) => ({ f, dias: diasHasta(f.fecha_vencimiento) }))
+    .filter((x) => x.dias !== null && x.dias <= DIAS_POR_VENCER)
+    .sort((a, b) => a.dias - b.dias);
+
+  cont.appendChild(el("div", { class: "kpi-grid", style: "margin-bottom:14px" },
+    kpi("Deuda total", formatearCentavos(totalDeuda), `${conDeuda} con deuda`, totalDeuda > 0 ? "danger" : "ok",
+      "Total que le debés a tus proveedores (suma de todos los saldos). El subtítulo indica cuántos tienen deuda."),
+    kpi("Facturas pendientes", String(pendientes.length), "impagas", "",
+      "Cantidad de facturas con saldo total o parcial. No incluye las pagadas ni las anuladas."),
+    kpi("Por vencer", String(porVencer.length), "en 7 días o menos", porVencer.length ? "warn" : "ok",
+      "Facturas impagas que vencen en 7 días o menos. Incluye las que ya están vencidas."),
+    kpi("Proveedores", String(proveedores.length), "activos", "",
+      "Cantidad de proveedores activos cargados en el sistema."),
   ));
+
+  // ── Facturas próximas a vencer (detalle) ──
+  if (porVencer.length) {
+    cont.appendChild(tarjetaLista("Facturas próximas a vencer",
+      porVencer.slice(0, 8).map((x) => {
+        const prov = store.get().proveedoresById[x.f.proveedor_id];
+        return filaLista(
+          `${prov ? prov.nombre + " — " : ""}${x.f.tipo_comprobante} ${x.f.numero_factura || ""}`,
+          x.dias < 0 ? `vencida hace ${-x.dias}d` : `en ${x.dias}d`,
+          x.dias < 0 ? "badge-danger" : "badge-warn",
+          formatearCentavos(x.f.saldo_pendiente_centavos));
+      }),
+      "Facturas impagas que vencen en 7 días o menos (incluye las vencidas). Se muestran las 8 más urgentes."));
+  }
 
   if (!proveedores.length) {
     cont.appendChild(el("div", { class: "empty-state" }, el("p", {}, "Todavía no hay proveedores.")));
     return;
   }
-  const tabla = el("div", { class: "tabla-wrap" },
-    el("table", { class: "tabla" },
-      el("thead", {}, el("tr", {},
-        el("th", {}, "Proveedor"), el("th", {}, "Cond. fiscal"), el("th", { class: "num" }, "Saldo deuda"), el("th", { class: "text-right" }, "Acciones"))),
-      el("tbody", {}, ...proveedores.map((p) => {
-        const saldo = Number(p.saldo_total_deuda_centavos) || 0;
-        return el("tr", {},
-          el("td", {},
-            el("div", { class: "celda-principal" }, p.nombre),
-            el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`),
-            Array.isArray(p.rubros) && p.rubros.length ? el("div", { class: "celda-sub", style: "color:var(--verde)" }, p.rubros.join(" · ")) : null,
-          ),
-          el("td", {}, el("span", { class: "badge badge-info" }, LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal)),
-          el("td", { class: "num" }, el("span", { class: saldo > 0 ? "badge badge-danger" : (saldo < 0 ? "badge badge-ok" : "badge badge-muted") }, formatearCentavos(saldo))),
-          el("td", { class: "text-right" }, el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirFicha(p) }, "Ver ficha")),
-        );
-      })),
+
+  // ── Barra de filtros ──
+  const estiloSel = "flex:0 0 auto;min-width:160px;max-width:240px;font-size:.85rem";
+  const buscador = el("input", { class: "form-control buscador", placeholder: "Buscar proveedor…", type: "search" });
+  const rubrosPresentes = [...new Set(proveedores.flatMap((p) => Array.isArray(p.rubros) && p.rubros.length ? p.rubros : [SIN_RUBRO]))]
+    .sort((a, b) => a === SIN_RUBRO ? 1 : b === SIN_RUBRO ? -1 : a.localeCompare(b));
+  const selRubro = el("select", { class: "form-control", style: estiloSel },
+    el("option", { value: "" }, "Todos los rubros"),
+    ...rubrosPresentes.map((r) => el("option", { value: r }, r)),
+  );
+  const selOrden = el("select", { class: "form-control", style: estiloSel },
+    el("option", { value: "rubro" }, "Agrupar por rubro"),
+    el("option", { value: "deuda" }, "Ordenar por deuda (mayor primero)"),
+    el("option", { value: "nombre" }, "Ordenar por nombre (A→Z)"),
+  );
+  const conteo = el("span", { class: "text-muted", style: "font-size:.8rem;margin-left:auto" }, "");
+  const botones = [buscador, selRubro, selOrden, conteo];
+  if (puede(store.getRol(), "exportar")) {
+    const btnExport = el("button", { class: "btn btn-sm btn-secondary", onClick: () => exportarDeuda(proveedores) },
+      el("span", { html: ico("excel", 16) }), "Exportar deuda");
+    botones.push(btnExport);
+  }
+  cont.appendChild(el("div", { class: "toolbar" }, ...botones));
+
+  const tablaWrap = el("div", { class: "tabla-wrap" });
+  cont.appendChild(tablaWrap);
+
+  function dibujar() {
+    const f = buscador.value.toLowerCase().trim();
+    const rub = selRubro.value;
+    const orden = selOrden.value;
+
+    // Filtro por texto y por rubro.
+    const rubrosDe = (p) => (Array.isArray(p.rubros) && p.rubros.length) ? p.rubros : [SIN_RUBRO];
+    let filtrados = proveedores.filter((p) => {
+      if (f && !((p.nombre || "").toLowerCase().includes(f) || (p.codigo || "").toLowerCase().includes(f) || (p.cuit || "").includes(f))) return false;
+      if (rub && !rubrosDe(p).includes(rub)) return false;
+      return true;
+    });
+    conteo.textContent = `${filtrados.length} de ${proveedores.length}`;
+
+    limpiar(tablaWrap);
+    if (!filtrados.length) {
+      tablaWrap.appendChild(el("div", { class: "empty-state" }, el("p", {}, "No hay proveedores que coincidan.")));
+      return;
+    }
+
+    if (orden === "rubro") {
+      tablaWrap.appendChild(tablaAgrupada(filtrados, rub, rubrosDe));
+    } else {
+      const ordenados = [...filtrados].sort(orden === "deuda"
+        ? (a, b) => saldoDe(b) - saldoDe(a)
+        : (a, b) => (a.nombre || "").localeCompare(b.nombre || ""));
+      tablaWrap.appendChild(tablaPlana(ordenados));
+    }
+  }
+
+  [buscador, selRubro, selOrden].forEach((elm) => elm.addEventListener("input", dibujar));
+  dibujar();
+}
+
+// Cabecera de tabla común.
+function encabezado(conRubro) {
+  return el("thead", {}, el("tr", {},
+    conRubro ? el("th", {}, "Rubro") : null,
+    el("th", {}, "Proveedor"),
+    el("th", {}, "Cond. fiscal"),
+    el("th", { class: "num" }, "Saldo deuda"),
+    el("th", { class: "text-right" }, "Acciones"),
+  ));
+}
+
+// Fila de proveedor. `rubroCol` sólo se usa en la tabla plana.
+function filaProveedor(p, rubroCol) {
+  const saldo = saldoDe(p);
+  return el("tr", {},
+    rubroCol !== undefined ? el("td", { class: "celda-sub", style: "color:var(--verde)" }, rubroCol || "—") : null,
+    el("td", {},
+      el("div", { class: "celda-principal" }, p.nombre),
+      el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`),
+    ),
+    el("td", {}, el("span", { class: "badge badge-info" }, LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal)),
+    el("td", { class: "num" }, el("span", { class: "badge " + badgeSaldo(saldo) }, formatearCentavos(saldo))),
+    el("td", { class: "text-right", style: "white-space:nowrap" },
+      el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirFicha(p) }, "Ver ficha"),
+      " ",
+      el("button", { class: "btn btn-xs btn-secondary", onClick: () => abrirFormProveedor(p) }, "Editar"),
+    ),
+  );
+}
+
+// Tabla plana (ordenada por deuda o por nombre): muestra la columna Rubro.
+function tablaPlana(proveedores) {
+  const rubroTexto = (p) => (Array.isArray(p.rubros) && p.rubros.length) ? p.rubros.join(" · ") : "";
+  return el("table", { class: "tabla" },
+    encabezado(true),
+    el("tbody", {}, ...proveedores.map((p) => filaProveedor(p, rubroTexto(p)))),
+  );
+}
+
+// Tabla agrupada por rubro. Un proveedor con varios rubros aparece en cada uno.
+// Cada grupo lleva un subtotal de deuda (informativo).
+function tablaAgrupada(proveedores, rubroFiltrado, rubrosDe) {
+  // Armar mapa rubro → proveedores.
+  const grupos = new Map();
+  for (const p of proveedores) {
+    for (const r of rubrosDe(p)) {
+      if (rubroFiltrado && r !== rubroFiltrado) continue;
+      if (!grupos.has(r)) grupos.set(r, []);
+      grupos.get(r).push(p);
+    }
+  }
+  // Orden de los rubros: alfabético, "Sin rubro" al final.
+  const nombresRubro = [...grupos.keys()].sort((a, b) =>
+    a === SIN_RUBRO ? 1 : b === SIN_RUBRO ? -1 : a.localeCompare(b));
+
+  const tbody = el("tbody", {});
+  for (const r of nombresRubro) {
+    const lista = grupos.get(r).sort((a, b) => saldoDe(b) - saldoDe(a));
+    const subtotal = lista.reduce((a, p) => a + saldoDe(p), 0);
+    tbody.appendChild(el("tr", { class: "fila-grupo" },
+      el("td", { colspan: "2", style: "font-weight:700;background:var(--bg-secondary)" },
+        `${r}  ·  ${lista.length}`),
+      el("td", { class: "num", style: "background:var(--bg-secondary)" },
+        el("span", { class: "badge " + badgeSaldo(subtotal) }, formatearCentavos(subtotal))),
+      el("td", { style: "background:var(--bg-secondary)" }, ""),
     ));
-  cont.appendChild(tabla);
+    for (const p of lista) tbody.appendChild(filaProveedor(p));
+  }
+  return el("table", { class: "tabla" }, encabezado(false), tbody);
+}
+
+function exportarDeuda(proveedores) {
+  try {
+    const filas = [];
+    for (const p of proveedores) {
+      const rubros = (Array.isArray(p.rubros) && p.rubros.length) ? p.rubros.join(" · ") : "";
+      filas.push({
+        Rubro: rubros, Codigo: p.codigo || "", Proveedor: p.nombre, CUIT: p.cuit || "",
+        "Condicion fiscal": LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal,
+        "Saldo deuda ($)": saldoDe(p) / 100,
+      });
+    }
+    // Ordenado por rubro y luego por deuda desc, como el cuadro de administración.
+    filas.sort((a, b) => (a.Rubro || "~").localeCompare(b.Rubro || "~") || b["Saldo deuda ($)"] - a["Saldo deuda ($)"]);
+    exportarExcel(filas, "deuda-proveedores", "Deuda");
+  } catch (e) { toast(e.message, "error"); }
 }
 
 // ── Alta / edición de proveedor ───────────────────────────────
@@ -135,10 +311,20 @@ async function renderFicha(body, prov) {
   limpiar(body);
 
   const saldo = Number(provFresco.saldo_total_deuda_centavos) || 0;
+  // Totales del cuadro (como en el Excel de administración): facturado vs pagado.
+  const totalFacturado = facturas
+    .filter((fc) => fc.estado !== "anulada")
+    .reduce((a, fc) => a + (Number(fc.monto_total_centavos) || 0), 0);
+  const totalPagado = pagos
+    .filter((pg) => pg.estado === "activo")
+    .reduce((a, pg) => a + (Number(pg.monto_pagado_centavos) || 0), 0);
+
+  const rubrosTxt = (Array.isArray(prov.rubros) && prov.rubros.length) ? prov.rubros.join(" · ") : "";
   body.appendChild(el("div", { class: "flex justify-between items-center wrap gap-12", style: "margin-bottom:14px" },
     el("div", {},
-      el("div", { class: "text-muted", style: "font-size:.8rem" }, `${LABEL_COND[prov.condicion_fiscal] || prov.condicion_fiscal}${prov.cuit ? " · " + prov.cuit : ""}`),
-      el("div", { style: "font-size:1.4rem;font-weight:700;color:" + (saldo > 0 ? "var(--danger-txt)" : "var(--ok-txt)") }, `Saldo: ${formatearCentavos(saldo)}`),
+      el("div", { class: "text-muted", style: "font-size:.8rem" },
+        `${LABEL_COND[prov.condicion_fiscal] || prov.condicion_fiscal}${prov.cuit ? " · " + prov.cuit : ""}${rubrosTxt ? " · " + rubrosTxt : ""}`),
+      el("div", { style: "font-size:1.4rem;font-weight:700;color:" + (saldo > 0 ? "var(--danger-txt)" : "var(--ok-txt)") }, `Deuda: ${formatearCentavos(saldo)}`),
     ),
     el("div", { class: "flex gap-8" },
       el("button", { class: "btn btn-sm btn-secondary", onClick: () => abrirFormFactura(prov, () => renderFicha(body, prov)) }, "Cargar factura"),
@@ -146,39 +332,56 @@ async function renderFicha(body, prov) {
     ),
   ));
 
-  // Facturas
-  body.appendChild(el("p", { class: "card-title" }, "Facturas"));
-  if (!facturas.length) body.appendChild(el("p", { class: "form-hint" }, "Sin facturas."));
-  else body.appendChild(el("div", { class: "tabla-wrap", style: "margin-bottom:16px" },
+  // Dos columnas: Facturas | Pagos (como el cuadro que llevan en administración).
+  const colFacturas = el("div", {});
+  colFacturas.appendChild(el("p", { class: "card-title" }, "Facturas"));
+  if (!facturas.length) colFacturas.appendChild(el("p", { class: "form-hint" }, "Sin facturas."));
+  else colFacturas.appendChild(el("div", { class: "tabla-wrap" },
     el("table", { class: "tabla" },
-      el("thead", {}, el("tr", {}, el("th", {}, "Comprobante"), el("th", {}, "Emisión"), el("th", { class: "num" }, "Total"), el("th", { class: "num" }, "Saldo"), el("th", {}, "Estado"))),
+      el("thead", {}, el("tr", {}, el("th", {}, "Fecha"), el("th", {}, "Comprobante"), el("th", { class: "num" }, "Importe"), el("th", { class: "num" }, "Saldo"))),
       el("tbody", {}, ...facturas.map((fc) => el("tr", {},
+        el("td", {}, fechaCorta(fc.fecha_emision), el("div", { class: "celda-sub" }, el("span", { class: "badge " + badgeEstado(fc.estado) }, fc.estado))),
         el("td", {}, el("div", { class: "celda-principal" }, `${fc.tipo_comprobante} ${fc.numero_factura || ""}`), el("div", { class: "celda-sub" }, `neto ${formatearCentavos(fc.neto_gravado_centavos)}`)),
-        el("td", {}, fechaCorta(fc.fecha_emision)),
         el("td", { class: "num" }, formatearCentavos(fc.monto_total_centavos)),
         el("td", { class: "num" }, formatearCentavos(fc.saldo_pendiente_centavos)),
-        el("td", {}, el("span", { class: "badge " + badgeEstado(fc.estado) }, fc.estado)),
       ))),
+      el("tfoot", {}, el("tr", { class: "fila-total" },
+        el("td", { colspan: "2", style: "font-weight:700" }, "Total facturado"),
+        el("td", { class: "num", style: "font-weight:700" }, formatearCentavos(totalFacturado)),
+        el("td", {}, ""))),
     )));
 
-  // Pagos
-  body.appendChild(el("p", { class: "card-title" }, "Pagos"));
-  if (!pagos.length) body.appendChild(el("p", { class: "form-hint" }, "Sin pagos."));
-  else body.appendChild(el("div", { class: "tabla-wrap" },
+  const colPagos = el("div", {});
+  colPagos.appendChild(el("p", { class: "card-title" }, "Pagos"));
+  if (!pagos.length) colPagos.appendChild(el("p", { class: "form-hint" }, "Sin pagos."));
+  else colPagos.appendChild(el("div", { class: "tabla-wrap" },
     el("table", { class: "tabla" },
-      el("thead", {}, el("tr", {}, el("th", {}, "Fecha"), el("th", {}, "Método"), el("th", { class: "num" }, "Monto"), el("th", {}, "Estado"), el("th", { class: "text-right" }, ""))),
+      el("thead", {}, el("tr", {}, el("th", {}, "Fecha"), el("th", {}, "Método"), el("th", { class: "num" }, "Pago"), el("th", { class: "text-right" }, ""))),
       el("tbody", {}, ...pagos.map((pg) => el("tr", {},
         el("td", {}, fechaCorta(pg.fecha_pago), el("div", { class: "celda-sub" }, esc(pg.referencia || ""))),
-        el("td", {}, LABEL_METODO[pg.metodo_pago] || pg.metodo_pago),
+        el("td", {}, LABEL_METODO[pg.metodo_pago] || pg.metodo_pago,
+          pg.estado === "anulado" ? el("div", { class: "celda-sub" }, el("span", { class: "badge badge-muted" }, "anulado")) : null),
         el("td", { class: "num" }, formatearCentavos(pg.monto_pagado_centavos)),
-        el("td", {}, el("span", { class: "badge " + (pg.estado === "anulado" ? "badge-muted" : "badge-ok") }, pg.estado)),
         el("td", { class: "text-right" },
           pg.estado === "activo" && pg.monto_pagado_centavos > 0 && puede(store.getRol(), "anular_pago")
             ? el("button", { class: "btn btn-xs btn-danger", onClick: () => anular(pg, prov, body) }, "Anular")
             : "",
         ),
       ))),
+      el("tfoot", {}, el("tr", { class: "fila-total" },
+        el("td", { style: "font-weight:700" }, "Total pagado"),
+        el("td", {}, ""),
+        el("td", { class: "num", style: "font-weight:700" }, formatearCentavos(totalPagado)),
+        el("td", {}, ""))),
     )));
+
+  body.appendChild(el("div", { style: "display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start" }, colFacturas, colPagos));
+
+  // Cierre del cuadro: facturado − pagado (deuda). Es el recuadro final del Excel.
+  body.appendChild(el("div", { class: "flex justify-between items-center wrap gap-12", style: "margin-top:14px;padding:12px 16px;border-radius:var(--radio);background:var(--bg-secondary);border:1px solid var(--borde)" },
+    el("span", { class: "text-muted", style: "font-size:.85rem" }, `Facturado ${formatearCentavos(totalFacturado)} − Pagado ${formatearCentavos(totalPagado)}`),
+    el("span", { style: "font-size:1.15rem;font-weight:700;color:" + (saldo > 0 ? "var(--danger-txt)" : "var(--ok-txt)") }, `Deuda: ${formatearCentavos(saldo)}`),
+  ));
 }
 
 function badgeEstado(estado) {

@@ -15,7 +15,7 @@ export const ROL_POR_DEFECTO = ROLES.GERENTE;
 
 // Capacidad → roles que la tienen.
 const PERMISOS = {
-  ver_dashboard: [ROLES.GERENTE],
+  // ver_dashboard se eliminó en v0.5.0 junto con el Tablero.
   ver_costos: [ROLES.GERENTE],
   ver_insumos: [ROLES.GERENTE, ROLES.CARGADOR],
   editar_insumo: [ROLES.GERENTE, ROLES.CARGADOR],

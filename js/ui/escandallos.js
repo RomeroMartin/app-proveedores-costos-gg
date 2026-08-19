@@ -5,10 +5,12 @@
 // números juntos y etiquetados: costo (con IVA), precio de carta, costo s/ venta %.
 // ============================================================
 
-import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, fechaCorta, iconoAyuda } from "./helpers.js";
+import { $, el, limpiar, toast, abrirModal, confirmar, mostrarCargando, esc, ico, fechaCorta, iconoAyuda, kpi, tarjetaLista, filaLista, vacioLista } from "./helpers.js";
 import { formatearCentavos, formatearPorcentaje, pesosACentavos } from "../core/dinero.js";
 import { ALICUOTAS_IVA } from "../core/fiscal.js";
 import { costoReceta, rentabilidad, precioSugerido, validarGrafoReceta } from "../core/costeo.js";
+import { puede } from "../roles.js";
+import { exportarExcel } from "../export/excel.js";
 import * as recetasRepo from "../data/recetasRepo.js";
 import * as store from "../store.js";
 
@@ -47,8 +49,61 @@ async function pintar(cont) {
   const platos = recetas.filter((r) => r.tipo === "plato");
   const preps = recetas.filter((r) => r.tipo === "preparacion");
 
+  // ── KPIs de rentabilidad (antes vivían en el Tablero) ──
+  const rents = platos
+    .map((p) => ({ p, r: rentabilidad(p, store.costoDeReceta(p) || 0) }))
+    .filter((x) => (x.p.precio_venta_publico_centavos || 0) > 0);
+  const promFoodCost = rents.length ? rents.reduce((a, x) => a + x.r.foodCostPct, 0) / rents.length : 0;
+  const sobreUmbral = rents.filter((x) => x.r.foodCostPct > UMBRAL_FOODCOST).length;
+
+  cont.appendChild(el("div", { class: "kpi-grid", style: "margin-bottom:14px" },
+    kpi("Costo promedio %", rents.length ? formatearPorcentaje(promFoodCost, 1) : "—", `${platos.length} platos`,
+      promFoodCost > UMBRAL_FOODCOST ? "warn" : "ok",
+      "Promedio del costo (con IVA) sobre el precio de carta de todos tus platos con precio cargado. Cuanto más bajo, más rentable."),
+    kpi("Platos sobre umbral", String(sobreUmbral), `> ${UMBRAL_FOODCOST}% de costo`, sobreUmbral ? "danger" : "ok",
+      `Platos cuyo costo sobre venta supera el ${UMBRAL_FOODCOST}%: los que menos margen dejan.`),
+    kpi("Platos", String(platos.length), "se venden", "",
+      "Cantidad de platos (recetas que se venden) cargados."),
+    kpi("Preparaciones", String(preps.length), "uso interno", "",
+      "Cantidad de preparaciones (sub-recetas de uso interno) cargadas."),
+  ));
+
+  // ── Platos menos rentables + exportación ──
+  const peores = [...rents].sort((a, b) => b.r.foodCostPct - a.r.foodCostPct).slice(0, 10);
+  cont.appendChild(tarjetaLista("Platos menos rentables", peores.length
+    ? peores.map((x) => filaLista(x.p.nombre, formatearPorcentaje(x.r.foodCostPct, 1),
+        x.r.foodCostPct > UMBRAL_FOODCOST ? "badge-danger" : (x.r.foodCostPct > 30 ? "badge-warn" : "badge-ok")))
+    : [vacioLista("Sin platos con precio cargado.")],
+    "Los 10 platos con mayor costo respecto de su precio de venta: los que menos margen te dejan."));
+
+  if (puede(store.getRol(), "exportar")) {
+    cont.appendChild(el("div", { class: "card", style: "margin-bottom:14px" },
+      el("p", { class: "card-title" }, "Exportar"),
+      el("button", { class: "btn btn-sm btn-secondary", onClick: () => exportarRent(platos) },
+        el("span", { html: ico("excel", 16) }), "Rentabilidad de platos"),
+    ));
+  }
+
   cont.appendChild(seccion("Platos (se venden)", platos, true));
   cont.appendChild(seccion("Preparaciones (uso interno)", preps, false));
+}
+
+function exportarRent(platos) {
+  try {
+    const filas = platos.map((p) => {
+      const costo = store.costoDeReceta(p) || 0;
+      const r = rentabilidad(p, costo);
+      return {
+        Codigo: p.codigo || "", Plato: p.nombre,
+        "Costo c/IVA ($)": costo / 100,
+        "Precio neto ($)": Math.round(r.precioNetoCentavos) / 100,
+        "Precio carta ($)": (p.precio_venta_publico_centavos || 0) / 100,
+        "Costo s/ venta %": Number(r.foodCostPct.toFixed(1)),
+        "Margen bruto ($)": Math.round(r.margenBrutoCentavos) / 100,
+      };
+    });
+    exportarExcel(filas, "rentabilidad-platos", "Rentabilidad");
+  } catch (e) { toast(e.message, "error"); }
 }
 
 // Recetas activas que usan a `id` como ingrediente (sub-receta).
