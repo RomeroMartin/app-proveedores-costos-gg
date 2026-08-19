@@ -20,6 +20,18 @@ const SIN_RUBRO = "Sin rubro";
 const DIAS_POR_VENCER = 7;
 
 function saldoDe(p) { return Number(p.saldo_total_deuda_centavos) || 0; }
+// Rubro con el que el proveedor se agrupa. Compatibilidad: si no hay
+// rubro_principal (proveedores viejos), se usa el primer rubro cargado.
+function rubroPrincipalDe(p) {
+  if (p.rubro_principal) return p.rubro_principal;
+  if (Array.isArray(p.rubros) && p.rubros.length) return p.rubros[0];
+  return SIN_RUBRO;
+}
+// Rubros secundarios ("también me vende…"), sin el principal.
+function rubrosSecundariosDe(p) {
+  const principal = rubroPrincipalDe(p);
+  return (Array.isArray(p.rubros) ? p.rubros : []).filter((r) => r && r !== principal);
+}
 function diasHasta(ts) {
   const d = ts && ts.toDate ? ts.toDate() : null;
   if (!d) return null;
@@ -98,7 +110,8 @@ async function pintarLista(cont) {
   // ── Barra de filtros ──
   const estiloSel = "flex:0 0 auto;min-width:160px;max-width:240px;font-size:.85rem";
   const buscador = el("input", { class: "form-control buscador", placeholder: "Buscar proveedor…", type: "search" });
-  const rubrosPresentes = [...new Set(proveedores.flatMap((p) => Array.isArray(p.rubros) && p.rubros.length ? p.rubros : [SIN_RUBRO]))]
+  // El filtro y el agrupado usan el rubro PRINCIPAL de cada proveedor.
+  const rubrosPresentes = [...new Set(proveedores.map(rubroPrincipalDe))]
     .sort((a, b) => a === SIN_RUBRO ? 1 : b === SIN_RUBRO ? -1 : a.localeCompare(b));
   const selRubro = el("select", { class: "form-control", style: estiloSel },
     el("option", { value: "" }, "Todos los rubros"),
@@ -126,11 +139,10 @@ async function pintarLista(cont) {
     const rub = selRubro.value;
     const orden = selOrden.value;
 
-    // Filtro por texto y por rubro.
-    const rubrosDe = (p) => (Array.isArray(p.rubros) && p.rubros.length) ? p.rubros : [SIN_RUBRO];
+    // Filtro por texto y por rubro principal.
     let filtrados = proveedores.filter((p) => {
       if (f && !((p.nombre || "").toLowerCase().includes(f) || (p.codigo || "").toLowerCase().includes(f) || (p.cuit || "").includes(f))) return false;
-      if (rub && !rubrosDe(p).includes(rub)) return false;
+      if (rub && rubroPrincipalDe(p) !== rub) return false;
       return true;
     });
     conteo.textContent = `${filtrados.length} de ${proveedores.length}`;
@@ -142,7 +154,7 @@ async function pintarLista(cont) {
     }
 
     if (orden === "rubro") {
-      tablaWrap.appendChild(tablaAgrupada(filtrados, rub, rubrosDe));
+      tablaWrap.appendChild(tablaAgrupada(filtrados));
     } else {
       const ordenados = [...filtrados].sort(orden === "deuda"
         ? (a, b) => saldoDe(b) - saldoDe(a)
@@ -166,14 +178,21 @@ function encabezado(conRubro) {
   ));
 }
 
-// Fila de proveedor. `rubroCol` sólo se usa en la tabla plana.
-function filaProveedor(p, rubroCol) {
+// Nodo con los rubros secundarios en segundo plano (o null si no hay).
+function subRubrosSecundarios(p) {
+  const sec = rubrosSecundariosDe(p);
+  return sec.length ? el("div", { class: "celda-sub", style: "color:var(--texto-3)" }, "también: " + sec.join(" · ")) : null;
+}
+
+// Fila de proveedor. `mostrarRubro` agrega la columna Rubro (tabla plana).
+function filaProveedor(p, mostrarRubro) {
   const saldo = saldoDe(p);
   return el("tr", {},
-    rubroCol !== undefined ? el("td", { class: "celda-sub", style: "color:var(--verde)" }, rubroCol || "—") : null,
+    mostrarRubro ? el("td", { class: "celda-sub", style: "color:var(--verde);font-weight:600" }, rubroPrincipalDe(p)) : null,
     el("td", {},
       el("div", { class: "celda-principal" }, p.nombre),
       el("div", { class: "celda-sub" }, `${p.codigo || ""}${p.cuit ? " · " + p.cuit : ""}`),
+      subRubrosSecundarios(p),
     ),
     el("td", {}, el("span", { class: "badge badge-info" }, LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal)),
     el("td", { class: "num" }, el("span", { class: "badge " + badgeSaldo(saldo) }, formatearCentavos(saldo))),
@@ -185,26 +204,23 @@ function filaProveedor(p, rubroCol) {
   );
 }
 
-// Tabla plana (ordenada por deuda o por nombre): muestra la columna Rubro.
+// Tabla plana (ordenada por deuda o por nombre): muestra la columna Rubro principal.
 function tablaPlana(proveedores) {
-  const rubroTexto = (p) => (Array.isArray(p.rubros) && p.rubros.length) ? p.rubros.join(" · ") : "";
   return el("table", { class: "tabla" },
     encabezado(true),
-    el("tbody", {}, ...proveedores.map((p) => filaProveedor(p, rubroTexto(p)))),
+    el("tbody", {}, ...proveedores.map((p) => filaProveedor(p, true))),
   );
 }
 
-// Tabla agrupada por rubro. Un proveedor con varios rubros aparece en cada uno.
-// Cada grupo lleva un subtotal de deuda (informativo).
-function tablaAgrupada(proveedores, rubroFiltrado, rubrosDe) {
-  // Armar mapa rubro → proveedores.
+// Tabla agrupada por rubro PRINCIPAL: cada proveedor cae en un único grupo,
+// así los subtotales de deuda cuadran con la deuda total.
+function tablaAgrupada(proveedores) {
+  // Armar mapa rubro principal → proveedores.
   const grupos = new Map();
   for (const p of proveedores) {
-    for (const r of rubrosDe(p)) {
-      if (rubroFiltrado && r !== rubroFiltrado) continue;
-      if (!grupos.has(r)) grupos.set(r, []);
-      grupos.get(r).push(p);
-    }
+    const r = rubroPrincipalDe(p);
+    if (!grupos.has(r)) grupos.set(r, []);
+    grupos.get(r).push(p);
   }
   // Orden de los rubros: alfabético, "Sin rubro" al final.
   const nombresRubro = [...grupos.keys()].sort((a, b) =>
@@ -230,14 +246,14 @@ function exportarDeuda(proveedores) {
   try {
     const filas = [];
     for (const p of proveedores) {
-      const rubros = (Array.isArray(p.rubros) && p.rubros.length) ? p.rubros.join(" · ") : "";
       filas.push({
-        Rubro: rubros, Codigo: p.codigo || "", Proveedor: p.nombre, CUIT: p.cuit || "",
+        Rubro: rubroPrincipalDe(p), "Rubros secundarios": rubrosSecundariosDe(p).join(" · "),
+        Codigo: p.codigo || "", Proveedor: p.nombre, CUIT: p.cuit || "",
         "Condicion fiscal": LABEL_COND[p.condicion_fiscal] || p.condicion_fiscal,
         "Saldo deuda ($)": saldoDe(p) / 100,
       });
     }
-    // Ordenado por rubro y luego por deuda desc, como el cuadro de administración.
+    // Ordenado por rubro principal y luego por deuda desc, como el cuadro de administración.
     filas.sort((a, b) => (a.Rubro || "~").localeCompare(b.Rubro || "~") || b["Saldo deuda ($)"] - a["Saldo deuda ($)"]);
     exportarExcel(filas, "deuda-proveedores", "Deuda");
   } catch (e) { toast(e.message, "error"); }
@@ -255,14 +271,36 @@ function abrirFormProveedor(prov = null) {
   const inpTel = f("telefono", "Teléfono");
   const inpEmail = f("email", "email@proveedor.com");
 
-  // Rubros (uno o varios, opcional) — chips seleccionables
+  // Rubros (uno o varios, opcional) — chips seleccionables.
   const rubrosSel = new Set(prov && Array.isArray(prov.rubros) ? prov.rubros : []);
+  // Selector del rubro PRINCIPAL: se arma con los rubros tildados y se
+  // mantiene sincronizado al marcar/desmarcar chips.
+  const selPrincipal = el("select", { class: "form-control" });
+  function refrescarPrincipal() {
+    const previo = selPrincipal.value;
+    const seleccionados = RUBROS.filter((r) => rubrosSel.has(r)); // orden del catálogo
+    limpiar(selPrincipal);
+    if (!seleccionados.length) {
+      selPrincipal.appendChild(el("option", { value: "" }, "— tildá al menos un rubro —"));
+      selPrincipal.disabled = true;
+      return;
+    }
+    selPrincipal.disabled = false;
+    // Preferí: el valor que estaba elegido → el guardado del proveedor → el primero.
+    const target = (previo && rubrosSel.has(previo)) ? previo
+      : (prov && prov.rubro_principal && rubrosSel.has(prov.rubro_principal)) ? prov.rubro_principal
+      : seleccionados[0];
+    for (const r of seleccionados) {
+      selPrincipal.appendChild(el("option", { value: r, selected: r === target ? "selected" : null }, r));
+    }
+  }
   const chipsRubro = RUBROS.map((r) => {
     const chk = el("input", { type: "checkbox", value: r, checked: rubrosSel.has(r) ? "checked" : null, style: "margin:0" });
-    chk.addEventListener("change", () => { chk.checked ? rubrosSel.add(r) : rubrosSel.delete(r); });
+    chk.addEventListener("change", () => { chk.checked ? rubrosSel.add(r) : rubrosSel.delete(r); refrescarPrincipal(); });
     return el("label", { style: "display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--borde);border-radius:20px;font-size:.82rem;cursor:pointer;background:var(--bg-secondary);user-select:none" }, chk, r);
   });
   const boxRubros = el("div", { style: "display:flex;flex-wrap:wrap;gap:8px" }, ...chipsRubro);
+  refrescarPrincipal();
 
   const form = el("div", {},
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Nombre"), inpNombre),
@@ -273,6 +311,8 @@ function abrirFormProveedor(prov = null) {
     ),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubros (opcional)",
       iconoAyuda("Qué tipo(s) de producto te vende. Sirve para sugerir el rubro de sus insumos y para filtrar. Podés elegir varios.")), boxRubros),
+    el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Rubro principal",
+      iconoAyuda("Con este rubro se agrupa el proveedor y se registra su deuda. Los demás quedan como secundarios ('también me vende…').")), selPrincipal),
     el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Contacto"), inpContacto),
     el("div", { class: "form-row" },
       el("div", { class: "form-group" }, el("label", { class: "form-label" }, "Teléfono"), inpTel),
@@ -285,7 +325,12 @@ function abrirFormProveedor(prov = null) {
       { texto: "Cancelar", clase: "btn-secondary" },
       { texto: editar ? "Guardar" : "Crear", clase: "btn-primary", onClick: async (cerrar) => {
           if (!inpNombre.value.trim()) return toast("Falta el nombre.", "error");
-          const datos = { nombre: inpNombre.value, cuit: inpCuit.value, condicion_fiscal: selCond.value, contacto: inpContacto.value, telefono: inpTel.value, email: inpEmail.value, rubros: Array.from(rubrosSel) };
+          // Rubros en orden del catálogo; el principal es el elegido (o el primero).
+          const rubros = RUBROS.filter((r) => rubrosSel.has(r));
+          let rubro_principal = selPrincipal.value;
+          if (!rubros.length) rubro_principal = "";
+          else if (!rubros.includes(rubro_principal)) rubro_principal = rubros[0];
+          const datos = { nombre: inpNombre.value, cuit: inpCuit.value, condicion_fiscal: selCond.value, contacto: inpContacto.value, telefono: inpTel.value, email: inpEmail.value, rubros, rubro_principal };
           try {
             if (editar) await proveedoresRepo.actualizar(prov.id, datos);
             else await proveedoresRepo.crear(datos);
@@ -319,7 +364,10 @@ async function renderFicha(body, prov) {
     .filter((pg) => pg.estado === "activo")
     .reduce((a, pg) => a + (Number(pg.monto_pagado_centavos) || 0), 0);
 
-  const rubrosTxt = (Array.isArray(prov.rubros) && prov.rubros.length) ? prov.rubros.join(" · ") : "";
+  const principal = rubroPrincipalDe(prov);
+  const secundarios = rubrosSecundariosDe(prov);
+  const rubrosTxt = (principal && principal !== SIN_RUBRO ? principal : "")
+    + (secundarios.length ? ` (también: ${secundarios.join(" · ")})` : "");
   body.appendChild(el("div", { class: "flex justify-between items-center wrap gap-12", style: "margin-bottom:14px" },
     el("div", {},
       el("div", { class: "text-muted", style: "font-size:.8rem" },

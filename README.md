@@ -107,5 +107,7 @@ con filtros, deuda y vencimientos) · Facturas/Pagos · Usuarios y roles · Expo
 > El **Tablero** se eliminó en v0.5.0: sus KPI se repartieron en cada tag
 > (Proveedores: deuda y vencimientos; Costos: rentabilidad; Insumos: precios).
 > La pantalla **Proveedores** replica el cuadro que administración lleva en
-> Excel: agrupado por rubro → proveedor → deuda, con filtros por rubro, deuda y
-> nombre, y una ficha por proveedor con facturas y pagos (facturado vs pagado).
+> Excel: agrupado por **rubro principal** → proveedor → deuda, con filtros por
+> rubro, deuda y nombre, y una ficha por proveedor con facturas y pagos
+> (facturado vs pagado). Cada proveedor tiene un rubro principal (con el que se
+> agrupa y se registra la deuda) y, opcionalmente, rubros secundarios.

@@ -183,11 +183,14 @@ function abrirFormInsumo(insumo = null) {
   const selRubro = el("select", { class: "form-control" },
     el("option", { value: "" }, "— Sin rubro —"),
     ...RUBROS.map((r) => el("option", { value: r, selected: insumo && insumo.rubro === r ? "selected" : null }, r)));
-  // Al elegir proveedor, si no hay rubro puesto, sugerir el primero del proveedor.
-  const rubrosPorProv = {};
-  proveedores.forEach((p) => { rubrosPorProv[p.id] = Array.isArray(p.rubros) ? p.rubros : []; });
+  // Al elegir proveedor, si no hay rubro puesto, sugerir su rubro principal
+  // (o el primero cargado, para proveedores viejos sin principal).
+  const rubroSugeridoProv = {};
+  proveedores.forEach((p) => {
+    rubroSugeridoProv[p.id] = p.rubro_principal || (Array.isArray(p.rubros) && p.rubros.length ? p.rubros[0] : "");
+  });
   selProv.addEventListener("change", () => {
-    if (!selRubro.value) { const rs = rubrosPorProv[selProv.value] || []; if (rs.length) selRubro.value = rs[0]; }
+    if (!selRubro.value) { const rs = rubroSugeridoProv[selProv.value]; if (rs) selRubro.value = rs; }
   });
   const preview = el("div", { class: "form-hint" }, "El costo por unidad base se calcula desde la presentación.");
 

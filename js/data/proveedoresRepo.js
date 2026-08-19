@@ -40,6 +40,9 @@ export async function crear(datos) {
     telefono: (datos.telefono || "").trim(),
     email: (datos.email || "").trim(),
     rubros: Array.isArray(datos.rubros) ? datos.rubros : [],
+    // El rubro con el que el proveedor se agrupa (identidad principal). Los
+    // demás rubros quedan como secundarios ("también me vende…").
+    rubro_principal: datos.rubro_principal || (Array.isArray(datos.rubros) && datos.rubros.length ? datos.rubros[0] : ""),
     saldo_total_deuda_centavos: 0,
     ...camposCreacion(),
   };
@@ -50,7 +53,7 @@ export async function crear(datos) {
 
 /** Edita datos de contacto/fiscales (nunca el saldo). */
 export async function actualizar(id, datos) {
-  const permitidos = ["nombre", "cuit", "condicion_fiscal", "contacto", "telefono", "email", "rubros"];
+  const permitidos = ["nombre", "cuit", "condicion_fiscal", "contacto", "telefono", "email", "rubros", "rubro_principal"];
   const payload = {};
   for (const k of permitidos) if (k in datos) payload[k] = datos[k];
   await updateDoc(doc(db, COL, id), { ...payload, ...camposModificacion() });
