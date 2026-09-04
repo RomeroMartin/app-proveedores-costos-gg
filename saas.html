@@ -6,84 +6,97 @@
   <title>SaaS Gastronómico</title>
   <style>
     :root {
-      --bg: #f6f7f9; --card: #fff; --tinta: #1e2430; --muted: #6b7280;
-      --borde: #e5e7eb; --acento: #2563eb; --ok: #16a34a; --error: #dc2626;
-      --side: #0f172a; --side-tinta: #cbd5e1; --side-activo: #1e293b; --side-hover: #1e293b;
-      --sidebar-w: 248px;
+      /* Paleta sobria y neutra (un solo tono de grises) */
+      --bg: #fafafa; --card: #ffffff; --panel: #fbfbfb;
+      --tinta: #18181b; --tinta-2: #3f3f46; --muted: #71717a;
+      --borde: #e7e7e9; --borde-2: #ededef;
+      --hover: #f4f4f5; --activo: #efeff1;
+      --ok: #15803d; --error: #b91c1c;
+      --sidebar-w: 250px;
     }
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--tinta);
-      font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+      font: 14.5px/1.55 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; -webkit-font-smoothing: antialiased; }
+    svg { display: block; }
 
     /* ---------- login ---------- */
-    .centro { max-width: 380px; margin: 48px auto; padding: 0 16px; }
+    .centro { max-width: 380px; margin: 56px auto; padding: 0 16px; }
 
-    /* ---------- layout app ---------- */
+    /* ---------- layout ---------- */
     #app { min-height: 100vh; }
     .layout { display: flex; min-height: 100vh; }
 
     .sidebar {
-      width: var(--sidebar-w); background: var(--side); color: var(--side-tinta);
-      display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
-      flex-shrink: 0;
+      width: var(--sidebar-w); background: var(--panel); border-right: 1px solid var(--borde);
+      display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh; flex-shrink: 0;
     }
-    .marca { padding: 18px 18px 14px; border-bottom: 1px solid #1e293b; }
-    .marca-empresa { font-size: 16px; font-weight: 700; color: #fff; }
-    .marca-sub { font-size: 11px; color: #64748b; letter-spacing: .04em; text-transform: uppercase; }
+    .marca { padding: 16px 18px; border-bottom: 1px solid var(--borde); }
+    .marca-empresa { font-size: 14.5px; font-weight: 650; color: var(--tinta); letter-spacing: -.01em; }
+    .marca-sub { font-size: 10.5px; color: var(--muted); letter-spacing: .06em; text-transform: uppercase; margin-top: 2px; }
 
-    #menu { flex: 1; overflow-y: auto; padding: 10px 8px; }
-    .menu-grupo { margin-bottom: 2px; }
+    #menu { flex: 1; overflow-y: auto; padding: 8px; }
+    .menu-grupo { padding: 4px 0; }
+    .menu-grupo + .menu-grupo { border-top: 1px solid var(--borde-2); }
     .menu-grupo-head {
       width: 100%; display: flex; align-items: center; gap: 10px;
-      background: transparent; color: var(--side-tinta); border: 0; cursor: pointer;
-      padding: 10px 10px; border-radius: 8px; font-size: 14px; font-weight: 600; text-align: left;
+      background: transparent; color: var(--tinta-2); border: 0; cursor: pointer;
+      padding: 8px 10px; border-radius: 7px; font-size: 13px; font-weight: 600; text-align: left;
     }
-    .menu-grupo-head:hover { background: var(--side-hover); }
-    .menu-ico { font-size: 15px; }
+    .menu-grupo-head:hover { background: var(--hover); }
+    .menu-ico { color: var(--muted); display: flex; }
+    .menu-ico svg { width: 17px; height: 17px; }
     .menu-titulo { flex: 1; }
-    .menu-chevron { transition: transform .15s ease; color: #64748b; }
+    .menu-chevron { color: #a1a1aa; display: flex; transition: transform .15s ease; }
+    .menu-chevron svg { width: 15px; height: 15px; }
     .menu-grupo.abierto .menu-chevron { transform: rotate(90deg); }
-    .menu-items { display: none; padding: 2px 0 6px 34px; }
+
+    .menu-items { display: none; padding: 2px 0 4px; }
     .menu-grupo.abierto .menu-items { display: block; }
     .menu-item {
       display: block; width: 100%; text-align: left; background: transparent;
-      color: var(--side-tinta); border: 0; cursor: pointer; padding: 7px 10px;
+      color: var(--tinta-2); border: 0; cursor: pointer; padding: 7px 10px 7px 38px;
       border-radius: 7px; font-size: 13.5px;
     }
-    .menu-item:hover { background: var(--side-hover); color: #fff; }
-    .menu-item.activo { background: var(--acento); color: #fff; font-weight: 600; }
+    .menu-item:hover { background: var(--hover); color: var(--tinta); }
+    .menu-item.activo { background: var(--activo); color: var(--tinta); font-weight: 600; }
 
-    .sidebar-footer { padding: 12px 14px; border-top: 1px solid #1e293b; display: flex; align-items: center; gap: 10px; }
-    .avatar { width: 34px; height: 34px; border-radius: 50%; background: var(--acento); color: #fff;
-      display: grid; place-items: center; font-weight: 700; flex-shrink: 0; }
+    .sidebar-footer { padding: 10px 12px; border-top: 1px solid var(--borde); display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 30px; height: 30px; border-radius: 50%; background: #e4e4e7; color: var(--tinta-2);
+      display: grid; place-items: center; font-weight: 650; font-size: 13px; flex-shrink: 0; }
     .sidebar-footer .datos { flex: 1; min-width: 0; }
-    .sidebar-footer .nombre { color: #fff; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sidebar-footer .rol { color: #64748b; font-size: 11px; }
-    .icon-btn { background: transparent; border: 0; color: #94a3b8; cursor: pointer; font-size: 18px; padding: 4px; }
-    .icon-btn:hover { color: #fff; }
+    .sidebar-footer .nombre { color: var(--tinta); font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sidebar-footer .rol { color: var(--muted); font-size: 11px; }
+    .icon-btn { background: transparent; border: 0; color: var(--muted); cursor: pointer; padding: 6px; border-radius: 6px; display: flex; }
+    .icon-btn:hover { color: var(--tinta); background: var(--hover); }
+    .icon-btn svg { width: 18px; height: 18px; }
 
     /* ---------- contenido ---------- */
     .contenido { flex: 1; min-width: 0; }
     .topbar-mobile { display: none; align-items: center; gap: 12px;
       background: var(--card); border-bottom: 1px solid var(--borde); padding: 10px 14px; position: sticky; top: 0; z-index: 5; }
-    .topbar-mobile .marca-empresa { color: var(--tinta); font-size: 15px; }
-    #btn-menu { background: transparent; border: 0; font-size: 22px; cursor: pointer; color: var(--tinta); }
-    .main-inner { max-width: 980px; margin: 0 auto; padding: 22px 18px 40px; }
+    .topbar-mobile .marca-empresa { font-size: 14px; }
+    #btn-menu { background: transparent; border: 0; cursor: pointer; color: var(--tinta); padding: 4px; display: flex; }
+    #btn-menu svg { width: 22px; height: 22px; }
+    .main-inner { max-width: 960px; margin: 0 auto; padding: 24px 20px 48px; }
 
-    /* ---------- overlay mobile ---------- */
-    #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 20; }
+    #overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 20; }
 
     /* ---------- componentes ---------- */
-    h1 { font-size: 20px; margin: 0; }
-    h2 { font-size: 16px; margin: 24px 0 8px; }
-    .card { background: var(--card); border: 1px solid var(--borde); border-radius: 12px; padding: 20px; margin-top: 16px; }
+    h1 { font-size: 19px; margin: 0; letter-spacing: -.01em; }
+    h2 { font-size: 15px; margin: 0 0 4px; letter-spacing: -.01em; }
+    h3 { letter-spacing: .02em; }
+    .card { background: var(--card); border: 1px solid var(--borde); border-radius: 10px; padding: 18px 20px; margin-top: 14px; }
     .card:first-child { margin-top: 0; }
-    label { display: block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+    label { display: block; font-size: 12.5px; color: var(--muted); margin: 10px 0 4px; }
     input, select, button { font: inherit; }
-    input, select { width: 100%; padding: 9px 11px; border: 1px solid var(--borde); border-radius: 8px; background: #fff; }
-    button { cursor: pointer; border: 0; border-radius: 8px; padding: 9px 14px; background: var(--acento); color: #fff; font-weight: 600; }
-    button.secundario { background: #eef2ff; color: var(--acento); }
-    button.btn-baja { background: #fee2e2; color: var(--error); padding: 5px 10px; font-weight: 500; }
+    input, select { width: 100%; padding: 8px 11px; border: 1px solid var(--borde); border-radius: 7px; background: #fff; color: var(--tinta); }
+    input:focus, select:focus { outline: none; border-color: #a1a1aa; box-shadow: 0 0 0 3px rgba(0,0,0,.04); }
+    button { cursor: pointer; border: 1px solid transparent; border-radius: 7px; padding: 8px 14px; background: var(--tinta); color: #fff; font-weight: 550; }
+    button:hover { background: #000; }
+    button.secundario { background: #fff; color: var(--tinta); border-color: var(--borde); }
+    button.secundario:hover { background: var(--hover); }
+    button.btn-baja { background: #fff; color: var(--error); border-color: var(--borde); padding: 4px 10px; font-weight: 500; font-size: 13px; }
+    button.btn-baja:hover { background: #fef2f2; border-color: #fecaca; }
     .fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
     .fila > div { flex: 1; min-width: 150px; }
     .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
@@ -91,14 +104,13 @@
     .error { color: var(--error); }
     [data-tipo="ok"] { color: var(--ok); }
     [data-tipo="error"] { color: var(--error); }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borde); font-size: 14px; }
-    th { color: var(--muted); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; margin-top: 6px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--borde-2); font-size: 13.5px; }
+    th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
-    .msg { margin-top: 10px; font-size: 14px; }
+    .msg { margin-top: 10px; font-size: 13.5px; }
     .tabla-scroll { overflow-x: auto; }
 
-    /* ---------- responsive ---------- */
     @media (max-width: 820px) {
       .topbar-mobile { display: flex; }
       .sidebar { position: fixed; left: 0; top: 0; z-index: 30; transform: translateX(-100%); transition: transform .2s ease; }
@@ -114,7 +126,7 @@
     <div class="centro">
       <div class="card">
         <h1>SaaS Gastronómico</h1>
-        <p class="muted">Ingresá con tu usuario.</p>
+        <p class="muted" style="margin-top:4px;">Ingresá con tu usuario.</p>
         <form id="form-login">
           <label for="login-email">Email</label>
           <input id="login-email" type="email" autocomplete="username" required />
@@ -132,7 +144,6 @@
     <div id="overlay"></div>
     <div class="layout">
 
-      <!-- Sidebar -->
       <aside class="sidebar">
         <div class="marca">
           <div class="marca-empresa" id="marca-empresa"></div>
@@ -145,14 +156,17 @@
             <div class="nombre" id="user-nombre"></div>
             <div class="rol" id="user-rol"></div>
           </div>
-          <button class="icon-btn btn-logout" title="Salir">⏻</button>
+          <button class="icon-btn btn-logout" title="Salir" aria-label="Salir">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
         </div>
       </aside>
 
-      <!-- Contenido -->
       <div class="contenido">
         <div class="topbar-mobile">
-          <button id="btn-menu" aria-label="Menú">☰</button>
+          <button id="btn-menu" aria-label="Menú">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
           <div class="marca-empresa" id="marca-empresa-top"></div>
         </div>
         <div class="main-inner">

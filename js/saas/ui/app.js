@@ -24,10 +24,21 @@ function proximamente(titulo) {
   };
 }
 
+// Íconos de línea (SVG, stroke = currentColor). Delicados, un solo tono.
+const svg = (paths) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" ` +
+  `stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+const ICONOS = {
+  compras: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'),
+  costos: svg('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'),
+  rentabilidad: svg('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
+  chevron: svg('<polyline points="9 18 15 12 9 6"/>'),
+};
+
 // Registro del menú: grupos (módulos) → items (pantallas).
 const MENU = [
   {
-    id: "compras", titulo: "Compras", icono: "🧾",
+    id: "compras", titulo: "Compras", icono: ICONOS.compras,
     items: [
       { clave: "proveedores", titulo: "Proveedores", montar: proveedores.montar },
       { clave: "facturas", titulo: "Facturas", montar: proximamente("Facturas") },
@@ -35,14 +46,14 @@ const MENU = [
     ],
   },
   {
-    id: "costos", titulo: "Costos", icono: "📦",
+    id: "costos", titulo: "Costos", icono: ICONOS.costos,
     items: [
       { clave: "insumos", titulo: "Insumos", montar: insumos.montar },
       { clave: "historial", titulo: "Historial de precios", montar: proximamente("Historial de precios") },
     ],
   },
   {
-    id: "rentabilidad", titulo: "Rentabilidad", icono: "📈",
+    id: "rentabilidad", titulo: "Rentabilidad", icono: ICONOS.rentabilidad,
     items: [
       { clave: "recetas", titulo: "Escandallos / Recetas", montar: proximamente("Escandallos / Recetas") },
     ],
@@ -115,7 +126,7 @@ function construirMenu() {
     header.innerHTML =
       `<span class="menu-ico">${grupo.icono}</span>
        <span class="menu-titulo">${grupo.titulo}</span>
-       <span class="menu-chevron">›</span>`;
+       <span class="menu-chevron">${ICONOS.chevron}</span>`;
     header.addEventListener("click", () => sec.classList.toggle("abierto"));
     sec.appendChild(header);
 
