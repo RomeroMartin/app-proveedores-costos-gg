@@ -266,15 +266,21 @@ create index if not exists ix_ingr_receta on ingredientes_receta(receta_padre_id
 -- ============================================================================
 
 -- Devuelve la empresa_id del usuario autenticado.
+-- En plpgsql el cuerpo NO se valida al crear la función (se resuelve al
+-- ejecutar), así que el orden de creación nunca da problemas.
 create or replace function mi_empresa()
-returns uuid language sql stable security definer set search_path = public as $$
-  select empresa_id from public.usuarios where id = auth.uid();
+returns uuid language plpgsql stable security definer set search_path = public as $$
+begin
+  return (select empresa_id from public.usuarios where id = auth.uid());
+end;
 $$;
 
 -- Rol del usuario autenticado.
 create or replace function mi_rol()
-returns text language sql stable security definer set search_path = public as $$
-  select rol from public.usuarios where id = auth.uid();
+returns text language plpgsql stable security definer set search_path = public as $$
+begin
+  return (select rol from public.usuarios where id = auth.uid());
+end;
 $$;
 
 -- ============================================================================
