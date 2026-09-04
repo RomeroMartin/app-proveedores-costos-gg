@@ -10,6 +10,7 @@ import { login, logout, sesionActual, miPerfil } from "../auth.js";
 import { mostrar, setMsg } from "./helpers.js";
 import * as proveedores from "./proveedores.js";
 import * as insumos from "./insumos.js";
+import * as recetas from "./recetas.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -55,7 +56,7 @@ const MENU = [
   {
     id: "rentabilidad", titulo: "Rentabilidad", icono: ICONOS.rentabilidad,
     items: [
-      { clave: "recetas", titulo: "Escandallos / Recetas", montar: proximamente("Escandallos / Recetas") },
+      { clave: "recetas", titulo: "Recetas y costos", montar: recetas.montar },
     ],
   },
 ];
