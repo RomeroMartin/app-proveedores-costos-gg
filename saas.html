@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SaaS Gastronómico — Proveedores (demo)</title>
+  <title>SaaS Gastronómico</title>
   <style>
     :root {
       --bg: #f6f7f9; --card: #fff; --tinta: #1e2430; --muted: #6b7280;
@@ -12,7 +12,7 @@
     * { box-sizing: border-box; }
     body { margin: 0; background: var(--bg); color: var(--tinta);
       font: 15px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .wrap { max-width: 960px; margin: 0 auto; padding: 24px 16px; }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px; }
     h1 { font-size: 20px; margin: 0; }
     h2 { font-size: 16px; margin: 24px 0 8px; }
     .card { background: var(--card); border: 1px solid var(--borde);
@@ -26,7 +26,7 @@
     button.secundario { background: #eef2ff; color: var(--acento); }
     button.btn-baja { background: #fee2e2; color: var(--error); padding: 5px 10px; font-weight: 500; }
     .fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
-    .fila > div { flex: 1; min-width: 160px; }
+    .fila > div { flex: 1; min-width: 150px; }
     .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
     .muted { color: var(--muted); }
     .error { color: var(--error); }
@@ -37,9 +37,11 @@
     th { color: var(--muted); font-weight: 600; }
     td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
     .msg { margin-top: 10px; font-size: 14px; }
-    .pill { font-size: 12px; background: #eef2ff; color: var(--acento);
-      padding: 2px 8px; border-radius: 999px; }
+    .pill { font-size: 12px; background: #eef2ff; color: var(--acento); padding: 2px 8px; border-radius: 999px; }
     .tabla-scroll { overflow-x: auto; }
+    nav#nav { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .nav-btn { background: #fff; color: var(--tinta); border: 1px solid var(--borde); font-weight: 500; }
+    .nav-btn.activo { background: var(--acento); color: #fff; border-color: var(--acento); }
   </style>
 </head>
 <body>
@@ -55,9 +57,7 @@
           <input id="login-email" type="email" autocomplete="username" required />
           <label for="login-pass">Contraseña</label>
           <input id="login-pass" type="password" autocomplete="current-password" required />
-          <div style="margin-top:16px;">
-            <button type="submit">Ingresar</button>
-          </div>
+          <div style="margin-top:16px;"><button type="submit">Ingresar</button></div>
           <p id="login-msg" class="msg" hidden></p>
         </form>
       </div>
@@ -67,49 +67,14 @@
     <section id="app" hidden>
       <div class="topbar">
         <div>
-          <h1><span id="empresa-nombre"></span> <span class="pill">demo</span></h1>
+          <h1><span id="empresa-nombre"></span></h1>
           <span class="muted" id="usuario-info"></span>
         </div>
         <button id="btn-logout" class="secundario">Salir</button>
       </div>
 
-      <div class="card">
-        <div class="topbar">
-          <h2 style="margin:0;">Proveedores</h2>
-          <button id="btn-refrescar" class="secundario">Refrescar</button>
-        </div>
-        <div id="prov-lista" class="tabla-scroll"></div>
-      </div>
-
-      <div class="card">
-        <h2 style="margin-top:0;">Nuevo proveedor</h2>
-        <form id="form-proveedor">
-          <div class="fila">
-            <div>
-              <label for="prov-nombre">Nombre *</label>
-              <input id="prov-nombre" required />
-            </div>
-            <div>
-              <label for="prov-cuit">CUIT</label>
-              <input id="prov-cuit" />
-            </div>
-          </div>
-          <div class="fila">
-            <div>
-              <label for="prov-condicion">Condición fiscal</label>
-              <select id="prov-condicion"></select>
-            </div>
-            <div>
-              <label for="prov-rubro">Rubro principal</label>
-              <input id="prov-rubro" placeholder="Ej: Lácteos" />
-            </div>
-          </div>
-          <div style="margin-top:16px;">
-            <button type="submit">Guardar proveedor</button>
-          </div>
-          <p id="prov-msg" class="msg" hidden></p>
-        </form>
-      </div>
+      <nav id="nav"></nav>
+      <div id="screen"></div>
     </section>
 
   </div>
