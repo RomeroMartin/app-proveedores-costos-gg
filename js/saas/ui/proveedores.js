@@ -6,9 +6,10 @@
 // ============================================================
 
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
+import * as catalogos from "../data/catalogosRepo.js";
 import { CONDICIONES_FISCALES } from "../../core/fiscal.js";
 import { formatearCentavos } from "../../core/dinero.js";
-import { escapar, setMsg } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist } from "./helpers.js";
 
 export async function montar(container, perfil) {
   container.innerHTML = `
@@ -24,16 +25,18 @@ export async function montar(container, perfil) {
       <h2 style="margin-top:0;">Nuevo proveedor</h2>
       <form id="form-proveedor">
         <div class="fila">
-          <div><label for="prov-nombre">Nombre *</label><input id="prov-nombre" required /></div>
-          <div><label for="prov-cuit">CUIT</label><input id="prov-cuit" /></div>
+          <div>${labelInfo("prov-nombre", "Nombre *", "Razón social o nombre con el que identificás al proveedor.")}<input id="prov-nombre" required /></div>
+          <div>${labelInfo("prov-cuit", "CUIT", "Número de CUIT del proveedor (opcional). Ej: 30-12345678-9.")}<input id="prov-cuit" placeholder="30-12345678-9" /></div>
         </div>
         <div class="fila">
-          <div><label for="prov-condicion">Condición fiscal</label><select id="prov-condicion"></select></div>
-          <div><label for="prov-rubro">Rubro principal</label><input id="prov-rubro" placeholder="Ej: Lácteos" /></div>
+          <div>${labelInfo("prov-condicion", "Condición fiscal", "Cómo factura el proveedor. Define si el IVA se puede tomar como crédito fiscal.")}<select id="prov-condicion"></select></div>
+          <div>${labelInfo("prov-rubro", "Rubro principal", "Categoría del proveedor (ej: Lácteos, Verdulería). Elegí una o escribí una nueva: se guarda para la próxima.")}
+            <input id="prov-rubro" list="dl-rubro" placeholder="Elegí o escribí…" /></div>
         </div>
         <div style="margin-top:16px;"><button type="submit">Guardar proveedor</button></div>
         <p id="prov-msg" class="msg" hidden></p>
       </form>
+      ${datalist("dl-rubro", catalogos.opciones("rubro"))}
     </div>`;
 
   const sel = container.querySelector("#prov-condicion");
@@ -43,6 +46,11 @@ export async function montar(container, perfil) {
   container.querySelector("#form-proveedor").addEventListener("submit", (e) => alta(e, container, perfil));
 
   await refrescar(container);
+}
+
+function refrescarDatalist(container) {
+  const dl = container.querySelector("#dl-rubro");
+  if (dl) dl.innerHTML = catalogos.opciones("rubro").map((o) => `<option value="${escapar(o)}"></option>`).join("");
 }
 
 function poblarCondiciones(sel) {
@@ -88,16 +96,19 @@ async function refrescar(container) {
 async function alta(e, container, perfil) {
   e.preventDefault();
   const msg = container.querySelector("#prov-msg");
+  const rubro = container.querySelector("#prov-rubro").value.trim();
   setMsg(msg, "Guardando…");
   try {
+    await catalogos.asegurar(perfil.empresa_id, "rubro", rubro);
     await proveedoresRepo.crear(perfil.empresa_id, {
       nombre: container.querySelector("#prov-nombre").value,
       cuit: container.querySelector("#prov-cuit").value,
       condicion_fiscal: container.querySelector("#prov-condicion").value,
-      rubro_principal: container.querySelector("#prov-rubro").value,
+      rubro_principal: rubro,
     });
     container.querySelector("#form-proveedor").reset();
     poblarCondiciones(container.querySelector("#prov-condicion"));
+    refrescarDatalist(container);
     setMsg(msg, "Proveedor creado ✔", "ok");
     await refrescar(container);
   } catch (err) {

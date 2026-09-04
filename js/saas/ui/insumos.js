@@ -6,11 +6,12 @@
 // ============================================================
 
 import * as insumosRepo from "../data/insumosRepo.js";
+import * as catalogos from "../data/catalogosRepo.js";
 import { MAGNITUDES, UNIDADES_POR_MAGNITUD, unidadBaseDe, convertirAUnidadBase, costoNetoPorUnidadBase } from "../../core/unidades.js";
 import { ALICUOTAS_IVA } from "../../core/fiscal.js";
 import { costoRealPorUnidadBase } from "../../core/costeo.js";
 import { pesosACentavos, formatearCentavos, formatearPorcentaje } from "../../core/dinero.js";
-import { escapar, setMsg } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist } from "./helpers.js";
 
 export async function montar(container, perfil) {
   const magOpts = Object.entries(MAGNITUDES)
@@ -30,27 +31,28 @@ export async function montar(container, perfil) {
       <h2 style="margin-top:0;">Nuevo insumo</h2>
       <form id="form-insumo">
         <div class="fila">
-          <div><label for="ins-nombre">Nombre *</label><input id="ins-nombre" required placeholder="Ej: Queso Mozzarella" /></div>
-          <div><label for="ins-rubro">Rubro</label><input id="ins-rubro" placeholder="Ej: Lácteos" /></div>
+          <div>${labelInfo("ins-nombre", "Nombre *", "Cómo llamás al insumo. Ej: Queso Mozzarella, Harina 0000.")}<input id="ins-nombre" required placeholder="Ej: Queso Mozzarella" /></div>
+          <div>${labelInfo("ins-rubro", "Rubro", "Categoría del insumo. Elegí una o escribí una nueva: se guarda para la próxima.")}<input id="ins-rubro" list="dl-rubro-ins" placeholder="Elegí o escribí…" /></div>
         </div>
         <div class="fila">
-          <div><label for="ins-magnitud">Magnitud</label><select id="ins-magnitud">${magOpts}</select></div>
-          <div><label for="ins-iva">Alícuota IVA</label><select id="ins-iva">${ivaOpts}</select></div>
-          <div><label for="ins-factor">Factor de corrección</label><input id="ins-factor" type="number" step="0.0001" value="1" title="1 = sin merma. 0.78 = queda 78% útil." /></div>
+          <div>${labelInfo("ins-magnitud", "Magnitud", "Cómo se mide: masa (g), volumen (ml) o unidad. Define la unidad base del costo.")}<select id="ins-magnitud">${magOpts}</select></div>
+          <div>${labelInfo("ins-iva", "Alícuota IVA", "IVA del insumo: 21% general, 10,5% muchos alimentos. Se usa para el costo con IVA.")}<select id="ins-iva">${ivaOpts}</select></div>
+          <div>${labelInfo("ins-factor", "Factor de corrección", "Rendimiento tras limpieza/desposte. 1 = sin pérdida. 0,78 = queda 78% útil (encarece el gramo usable).")}<input id="ins-factor" type="number" step="0.0001" value="1" /></div>
         </div>
 
-        <h3 style="font-size:14px;margin:16px 0 4px;color:var(--muted);">Presentación de compra</h3>
+        <h3 style="font-size:13px;margin:16px 0 4px;color:var(--muted);">Presentación de compra</h3>
         <div class="fila">
-          <div><label for="ins-pres-desc">Descripción</label><input id="ins-pres-desc" placeholder="Ej: Barra 5 kg" /></div>
-          <div><label for="ins-pres-cant">Cantidad</label><input id="ins-pres-cant" type="number" step="0.0001" placeholder="5" /></div>
-          <div><label for="ins-pres-unidad">Unidad</label><select id="ins-pres-unidad"></select></div>
-          <div><label for="ins-pres-precio">Precio neto ($)</label><input id="ins-pres-precio" placeholder="34.000,00" /></div>
+          <div>${labelInfo("ins-pres-desc", "Descripción", "Cómo lo comprás. Ej: Barra 5 kg, Caja 12 u, Bidón 5 L.")}<input id="ins-pres-desc" placeholder="Ej: Barra 5 kg" /></div>
+          <div>${labelInfo("ins-pres-cant", "Cantidad", "Cuánto trae la presentación, en la unidad de al lado. Ej: 5 (kg).")}<input id="ins-pres-cant" type="number" step="0.0001" placeholder="5" /></div>
+          <div>${labelInfo("ins-pres-unidad", "Unidad", "Unidad de la presentación (kg, g, L, ml, unidad…). El sistema convierte a la unidad base.")}<select id="ins-pres-unidad"></select></div>
+          <div>${labelInfo("ins-pres-precio", "Precio neto ($)", "Precio SIN IVA que pagás por esa presentación. Ej: 34.000.")}<input id="ins-pres-precio" placeholder="34.000,00" /></div>
         </div>
 
         <p id="ins-preview" class="muted" style="margin-top:10px;"></p>
         <div style="margin-top:12px;"><button type="submit">Guardar insumo</button></div>
         <p id="ins-msg" class="msg" hidden></p>
       </form>
+      ${datalist("dl-rubro-ins", catalogos.opciones("rubro"))}
     </div>`;
 
   const magSel = container.querySelector("#ins-magnitud");
@@ -148,11 +150,13 @@ async function alta(e, container, perfil) {
   const c = calcularCosto(container);
   if (!c) { setMsg(msg, "Completá la presentación de compra (cantidad, unidad y precio).", "error"); return; }
 
+  const rubro = container.querySelector("#ins-rubro").value.trim();
   setMsg(msg, "Guardando…");
   try {
+    await catalogos.asegurar(perfil.empresa_id, "rubro", rubro);
     await insumosRepo.crear(perfil.empresa_id, {
       nombre: container.querySelector("#ins-nombre").value,
-      rubro: container.querySelector("#ins-rubro").value,
+      rubro: rubro,
       magnitud: container.querySelector("#ins-magnitud").value,
       unidad_base: c.unidad_base,
       costo_neto_por_unidad_base_centavos: c.costoNetoBase,
@@ -165,6 +169,8 @@ async function alta(e, container, perfil) {
     container.querySelector("#form-insumo").reset();
     container.querySelector("#ins-factor").value = "1";
     container.querySelector("#ins-magnitud").dispatchEvent(new Event("change"));
+    const dl = container.querySelector("#dl-rubro-ins");
+    if (dl) dl.innerHTML = catalogos.opciones("rubro").map((o) => `<option value="${escapar(o)}"></option>`).join("");
     setMsg(msg, "Insumo creado ✔", "ok");
     await refrescar(container);
   } catch (err) {
