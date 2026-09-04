@@ -9,6 +9,7 @@
 import { login, logout, sesionActual, miPerfil } from "../auth.js";
 import { mostrar, setMsg } from "./helpers.js";
 import * as catalogos from "../data/catalogosRepo.js";
+import * as dashboard from "./dashboard.js";
 import * as proveedores from "./proveedores.js";
 import * as insumos from "./insumos.js";
 import * as recetas from "./recetas.js";
@@ -38,11 +39,18 @@ const ICONOS = {
   costos: svg('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'),
   rentabilidad: svg('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
   caja: svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'),
+  inicio: svg('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>'),
   chevron: svg('<polyline points="9 18 15 12 9 6"/>'),
 };
 
 // Registro del menú: grupos (módulos) → items (pantallas).
 const MENU = [
+  {
+    id: "inicio", titulo: "Inicio", icono: ICONOS.inicio,
+    items: [
+      { clave: "dashboard", titulo: "Tablero", montar: dashboard.montar },
+    ],
+  },
   {
     id: "compras", titulo: "Compras", icono: ICONOS.compras,
     items: [
@@ -73,7 +81,7 @@ const MENU = [
 ];
 
 const ITEMS = Object.fromEntries(MENU.flatMap((g) => g.items.map((it) => [it.clave, it])));
-const CLAVE_INICIAL = "proveedores";
+const CLAVE_INICIAL = "dashboard";
 const LS_ULTIMA = "saas_ultima_pantalla";
 
 // ---------- login ----------
