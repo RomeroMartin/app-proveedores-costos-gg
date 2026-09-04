@@ -182,6 +182,13 @@ async function init() {
   $("#btn-menu").addEventListener("click", abrirSidebarMobile);
   $("#overlay").addEventListener("click", cerrarSidebarMobile);
 
+  // Tooltips de ayuda "i": click/tap abre y cierra (hover ya funciona por CSS).
+  document.addEventListener("click", (e) => {
+    const hint = e.target.closest(".hint");
+    document.querySelectorAll(".hint.abierto").forEach((h) => { if (h !== hint) h.classList.remove("abierto"); });
+    if (hint) { e.preventDefault(); hint.classList.toggle("abierto"); }
+  });
+
   const sesion = await sesionActual();
   if (sesion) await entrarApp();
   else mostrar($("#login"), true);
