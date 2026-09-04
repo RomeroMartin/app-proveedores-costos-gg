@@ -17,3 +17,24 @@ export function setMsg(el, texto, tipo = "info") {
   el.dataset.tipo = tipo;
   el.hidden = !texto;
 }
+
+/** Ícono "i" de ayuda con tooltip (usa title nativo; accesible por teclado). */
+export function iconoInfo(texto) {
+  const t = escapar(texto);
+  return `<span class="hint" tabindex="0" role="img" aria-label="Ayuda: ${t}" title="${t}">` +
+    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ` +
+    `stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/>` +
+    `<line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>`;
+}
+
+/** Label con ícono de ayuda opcional. */
+export function labelInfo(idFor, texto, hint) {
+  return `<label for="${idFor}">${escapar(texto)}${hint ? " " + iconoInfo(hint) : ""}</label>`;
+}
+
+/** <datalist> con las opciones dadas (para inputs tipo combo: elegir o escribir). */
+export function datalist(id, opciones) {
+  return `<datalist id="${id}">` +
+    (opciones || []).map((o) => `<option value="${escapar(o)}"></option>`).join("") +
+    `</datalist>`;
+}

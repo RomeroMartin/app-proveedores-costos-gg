@@ -8,6 +8,7 @@
 
 import { login, logout, sesionActual, miPerfil } from "../auth.js";
 import { mostrar, setMsg } from "./helpers.js";
+import * as catalogos from "../data/catalogosRepo.js";
 import * as proveedores from "./proveedores.js";
 import * as insumos from "./insumos.js";
 import * as recetas from "./recetas.js";
@@ -103,6 +104,7 @@ async function entrarApp() {
   $("#user-rol").textContent = perfil.rol;
   $("#avatar").textContent = (perfil.nombre || "?").trim().charAt(0).toUpperCase() || "·";
 
+  await catalogos.cargar(); // opciones de los combos (best-effort)
   construirMenu();
 
   let inicial = CLAVE_INICIAL;

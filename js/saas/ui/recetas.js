@@ -7,9 +7,10 @@
 
 import * as recetasRepo from "../data/recetasRepo.js";
 import * as insumosRepo from "../data/insumosRepo.js";
+import * as catalogos from "../data/catalogosRepo.js";
 import { costoReceta, validarGrafoReceta, rentabilidad, precioSugerido } from "../../core/costeo.js";
 import { pesosACentavos, formatearCentavos, formatearPorcentaje } from "../../core/dinero.js";
-import { escapar, setMsg } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist } from "./helpers.js";
 
 let PERFIL = null;
 let INSUMOS = [];
@@ -161,29 +162,31 @@ function renderEditor(container, receta) {
     <div class="card">
       <h2>${esNuevo ? "Nueva receta" : "Editar: " + escapar(r.nombre || "")}</h2>
       <div class="fila">
-        <div style="flex:2;"><label for="rec-nombre">Nombre *</label>
+        <div style="flex:2;">${labelInfo("rec-nombre", "Nombre *", "Nombre del plato o de la preparación. Ej: Pizza Margherita, Salsa de tomate.")}
           <input id="rec-nombre" value="${escapar(r.nombre || "")}" placeholder="Ej: Pizza Margherita" /></div>
-        <div><label for="rec-tipo">Tipo</label>
+        <div>${labelInfo("rec-tipo", "Tipo", "Plato = se vende (tiene precio). Preparación = sub-receta que se usa dentro de otras recetas (ej: una salsa).")}
           <select id="rec-tipo">
             <option value="plato" ${tipo === "plato" ? "selected" : ""}>Plato (se vende)</option>
             <option value="preparacion" ${tipo === "preparacion" ? "selected" : ""}>Preparación (sub-receta)</option>
           </select></div>
       </div>
       <div class="fila">
-        <div><label for="rec-rend-cant">Rinde (cantidad)</label>
+        <div>${labelInfo("rec-rend-cant", "Rinde (cantidad)", "Cuánto produce la receta. Un plato normalmente rinde 1. Una salsa puede rendir 2000 (ml).")}
           <input id="rec-rend-cant" type="number" step="0.0001" value="${r.rendimiento_cantidad || 1}" /></div>
-        <div><label for="rec-rend-uni">Unidad</label>
-          <input id="rec-rend-uni" value="${escapar(r.rendimiento_unidad || "un")}" placeholder="un / porción / ml / g" /></div>
+        <div>${labelInfo("rec-rend-uni", "Unidad", "Unidad de lo que rinde. Elegí o escribí una nueva: se guarda para la próxima.")}
+          <input id="rec-rend-uni" list="dl-unidad-rend" value="${escapar(r.rendimiento_unidad || "un")}" placeholder="Elegí o escribí…" /></div>
       </div>
 
       <div id="rec-solo-plato" class="fila">
-        <div><label for="rec-precio">Precio de carta ($, con IVA)</label>
+        <div>${labelInfo("rec-precio", "Precio de carta ($, con IVA)", "Precio al público, IVA incluido. Se compara con el costo para el food cost %.")}
           <input id="rec-precio" value="${r.precio_venta_publico_centavos ? (r.precio_venta_publico_centavos / 100).toString().replace('.', ',') : ''}" placeholder="12.500,00" /></div>
-        <div><label for="rec-alicuota">Alícuota venta (%)</label>
+        <div>${labelInfo("rec-alicuota", "Alícuota venta (%)", "IVA de venta del plato (normalmente 21%). Se usa para el neto informativo.")}
           <input id="rec-alicuota" type="number" step="0.5" value="${r.alicuota_venta != null ? r.alicuota_venta : 21}" /></div>
-        <div><label for="rec-sector">Sector</label>
-          <input id="rec-sector" value="${escapar(r.sector_venta || "")}" placeholder="Cocina / Parrilla" /></div>
+        <div>${labelInfo("rec-sector", "Sector", "Dónde se prepara/despacha (Cocina, Parrilla, Barra…). Elegí o escribí uno nuevo.")}
+          <input id="rec-sector" list="dl-sector" value="${escapar(r.sector_venta || "")}" placeholder="Elegí o escribí…" /></div>
       </div>
+      ${datalist("dl-unidad-rend", catalogos.opciones("unidad_rendimiento"))}
+      ${datalist("dl-sector", catalogos.opciones("sector"))}
 
       <h3 class="muted" style="margin:18px 0 6px;">Ingredientes</h3>
       <div id="rec-ings"></div>
@@ -371,6 +374,8 @@ async function guardar(container) {
 
   setMsg(msg, "Guardando…");
   try {
+    await catalogos.asegurar(PERFIL.empresa_id, "unidad_rendimiento", datos.rendimiento_unidad);
+    if (receta.tipo === "plato") await catalogos.asegurar(PERFIL.empresa_id, "sector", datos.sector_venta);
     if (ed.id) {
       await recetasRepo.actualizar(PERFIL.empresa_id, ed.id, datos, ingredientes, costo || 0);
     } else {
