@@ -39,3 +39,35 @@ export function datalist(id, opciones) {
     (opciones || []).map((o) => `<option value="${escapar(o)}"></option>`).join("") +
     `</datalist>`;
 }
+
+/** Tarjeta KPI (HTML). tono: '' | 'ok' | 'danger' | 'warn'. */
+export function kpiHTML(titulo, valor, sub = "", tono = "") {
+  const color = tono === "danger" ? "var(--error)" : tono === "ok" ? "var(--ok)"
+    : tono === "warn" ? "#b45309" : "var(--tinta)";
+  return `<div class="kpi"><div class="kpi-t">${escapar(titulo)}</div>` +
+    `<div class="kpi-v" style="color:${color}">${escapar(valor)}</div>` +
+    `<div class="kpi-s">${escapar(sub)}</div></div>`;
+}
+
+/** Abre un modal y devuelve su cuerpo (elemento) para llenar. */
+export function abrirModal(titulo, { ancho } = {}) {
+  cerrarModal();
+  const ov = document.createElement("div");
+  ov.className = "modal-ov";
+  ov.id = "modal-ov";
+  ov.innerHTML =
+    `<div class="modal"${ancho === "lg" ? ' style="max-width:780px"' : ""}>` +
+    `<div class="modal-head"><h2>${escapar(titulo)}</h2>` +
+    `<button class="modal-x" aria-label="Cerrar">✕</button></div>` +
+    `<div class="modal-body"></div></div>`;
+  document.body.appendChild(ov);
+  ov.addEventListener("click", (e) => { if (e.target === ov) cerrarModal(); });
+  ov.querySelector(".modal-x").addEventListener("click", cerrarModal);
+  return ov.querySelector(".modal-body");
+}
+
+/** Cierra el modal abierto (si hay). */
+export function cerrarModal() {
+  const m = document.getElementById("modal-ov");
+  if (m) m.remove();
+}
