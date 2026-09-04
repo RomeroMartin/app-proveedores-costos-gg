@@ -34,6 +34,13 @@ export async function listar() {
   return data || [];
 }
 
+/** Trae un proveedor por id (con saldo fresco). */
+export async function obtener(id) {
+  const { data, error } = await supabase.from("proveedores").select("*").eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /**
  * Crea un proveedor. `empresaId` viene del perfil del usuario (sesión).
  * @returns {object} el proveedor creado

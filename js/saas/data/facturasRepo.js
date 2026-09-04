@@ -19,6 +19,18 @@ export async function listarPorProveedor(proveedorId) {
   return data || [];
 }
 
+/** Todas las facturas con saldo pendiente (para KPIs del listado). */
+export async function pendientesGlobal() {
+  const { data, error } = await supabase
+    .from("facturas")
+    .select("*")
+    .eq("activo", true)
+    .neq("estado", "anulada")
+    .gt("saldo_pendiente_centavos", 0);
+  if (error) throw error;
+  return data || [];
+}
+
 /** Facturas con saldo pendiente (FIFO: más antiguas primero). */
 export async function pendientes(proveedorId) {
   const { data, error } = await supabase
