@@ -30,19 +30,9 @@ begin
 end;
 $$;
 
--- Devuelve la empresa_id del usuario autenticado (leyendo la tabla usuarios).
--- SECURITY DEFINER: corre con permisos elevados para no chocar con la RLS de
--- `usuarios` (evita recursión de políticas).
-create or replace function mi_empresa()
-returns uuid language sql stable security definer set search_path = public as $$
-  select empresa_id from public.usuarios where id = auth.uid();
-$$;
-
--- Rol del usuario autenticado.
-create or replace function mi_rol()
-returns text language sql stable security definer set search_path = public as $$
-  select rol from public.usuarios where id = auth.uid();
-$$;
+-- NOTA: las funciones de tenant mi_empresa() / mi_rol() se definen más abajo
+-- (sección 4.5), DESPUÉS de crear la tabla `usuarios`, porque una función SQL
+-- se valida contra el esquema al momento de crearse.
 
 -- ============================================================================
 -- 1. CORE MULTI-TENANT
@@ -267,6 +257,25 @@ create table if not exists ingredientes_receta (
   )
 );
 create index if not exists ix_ingr_receta on ingredientes_receta(receta_padre_id);
+
+-- ============================================================================
+-- 4.5. FUNCIONES DE TENANT (ya existe la tabla usuarios)
+-- ----------------------------------------------------------------------------
+-- SECURITY DEFINER: corren con permisos elevados para no chocar con la RLS de
+-- `usuarios` (evita recursión de políticas).
+-- ============================================================================
+
+-- Devuelve la empresa_id del usuario autenticado.
+create or replace function mi_empresa()
+returns uuid language sql stable security definer set search_path = public as $$
+  select empresa_id from public.usuarios where id = auth.uid();
+$$;
+
+-- Rol del usuario autenticado.
+create or replace function mi_rol()
+returns text language sql stable security definer set search_path = public as $$
+  select rol from public.usuarios where id = auth.uid();
+$$;
 
 -- ============================================================================
 -- 5. TRIGGERS DE modificado_en
