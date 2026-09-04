@@ -12,6 +12,8 @@ import * as catalogos from "../data/catalogosRepo.js";
 import * as proveedores from "./proveedores.js";
 import * as insumos from "./insumos.js";
 import * as recetas from "./recetas.js";
+import * as facturas from "./facturas.js";
+import * as pagos from "./pagos.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -43,8 +45,8 @@ const MENU = [
     id: "compras", titulo: "Compras", icono: ICONOS.compras,
     items: [
       { clave: "proveedores", titulo: "Proveedores", montar: proveedores.montar },
-      { clave: "facturas", titulo: "Facturas", montar: proximamente("Facturas") },
-      { clave: "pagos", titulo: "Pagos", montar: proximamente("Pagos") },
+      { clave: "facturas", titulo: "Facturas", montar: facturas.montar },
+      { clave: "pagos", titulo: "Pagos", montar: pagos.montar },
     ],
   },
   {
