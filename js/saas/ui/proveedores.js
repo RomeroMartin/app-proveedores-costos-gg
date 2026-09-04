@@ -75,10 +75,14 @@ function render() {
     </div>
 
     <div class="kpi-grid">
-      ${kpiHTML("Deuda total", formatearCentavos(totalDeuda), `${conDeuda} con deuda`, totalDeuda > 0 ? "danger" : "ok")}
-      ${kpiHTML("Facturas pendientes", String(PENDIENTES.length), "impagas")}
-      ${kpiHTML("Por vencer", String(porVencer), "en 7 días o menos", porVencer ? "warn" : "ok")}
-      ${kpiHTML("Proveedores", String(PROVEEDORES.length), "activos")}
+      ${kpiHTML("Deuda total", formatearCentavos(totalDeuda), `${conDeuda} con deuda`, totalDeuda > 0 ? "danger" : "ok",
+        "Suma de todo lo que le debés a tus proveedores (todos los saldos). El subtítulo indica cuántos tienen deuda.")}
+      ${kpiHTML("Facturas pendientes", String(PENDIENTES.length), "impagas", "",
+        "Cantidad de facturas con saldo (total o parcial). No incluye las pagadas ni las anuladas.")}
+      ${kpiHTML("Por vencer", String(porVencer), "en 7 días o menos", porVencer ? "warn" : "ok",
+        "Facturas impagas que vencen en 7 días o menos. Incluye las que ya están vencidas.")}
+      ${kpiHTML("Proveedores", String(PROVEEDORES.length), "activos", "",
+        "Cantidad de proveedores activos cargados.")}
     </div>
 
     <div class="toolbar">

@@ -40,11 +40,11 @@ export function datalist(id, opciones) {
     `</datalist>`;
 }
 
-/** Tarjeta KPI (HTML). tono: '' | 'ok' | 'danger' | 'warn'. */
-export function kpiHTML(titulo, valor, sub = "", tono = "") {
+/** Tarjeta KPI (HTML). tono: '' | 'ok' | 'danger' | 'warn'. hint: ayuda opcional. */
+export function kpiHTML(titulo, valor, sub = "", tono = "", hint = "") {
   const color = tono === "danger" ? "var(--error)" : tono === "ok" ? "var(--ok)"
     : tono === "warn" ? "#b45309" : "var(--tinta)";
-  return `<div class="kpi"><div class="kpi-t">${escapar(titulo)}</div>` +
+  return `<div class="kpi"><div class="kpi-t">${escapar(titulo)}${hint ? " " + iconoInfo(hint) : ""}</div>` +
     `<div class="kpi-v" style="color:${color}">${escapar(valor)}</div>` +
     `<div class="kpi-s">${escapar(sub)}</div></div>`;
 }
