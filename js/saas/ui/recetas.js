@@ -10,7 +10,7 @@ import * as insumosRepo from "../data/insumosRepo.js";
 import * as catalogos from "../data/catalogosRepo.js";
 import { costoReceta, validarGrafoReceta, rentabilidad, precioSugerido } from "../../core/costeo.js";
 import { pesosACentavos, formatearCentavos, formatearPorcentaje } from "../../core/dinero.js";
-import { escapar, setMsg, labelInfo, datalist } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist, toast, confirmar } from "./helpers.js";
 
 let PERFIL = null;
 let INSUMOS = [];
@@ -390,12 +390,13 @@ async function guardar(container) {
 }
 
 async function baja(container, id) {
-  if (!confirm("¿Dar de baja esta receta?")) return;
+  if (!(await confirmar({ titulo: "Dar de baja", mensaje: "¿Dar de baja esta receta?", textoOk: "Dar de baja", peligro: true }))) return;
   try {
     await recetasRepo.desactivar(id);
     if (ed.id === id) ed = nuevoEditor();
     await cargar(container);
+    toast("Receta dada de baja");
   } catch (err) {
-    alert("Error: " + (err.message || err));
+    toast("Error: " + (err.message || err), "error");
   }
 }

@@ -5,7 +5,7 @@
 import * as empresasRepo from "../data/empresasRepo.js";
 import * as usuariosRepo from "../data/usuariosRepo.js";
 import * as catalogos from "../data/catalogosRepo.js";
-import { escapar, setMsg, labelInfo, datalist } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist, toast } from "./helpers.js";
 
 const ROLES = ["ADMIN", "GERENTE", "COCINA", "AUDITOR"];
 const $ = (c, s) => c.querySelector(s);
@@ -127,13 +127,13 @@ export async function catalogosCfg(container, perfil) {
   if (!admin) return;
   container.querySelectorAll(".cat-del").forEach((b) => b.addEventListener("click", async () => {
     try { await catalogos.eliminar(perfil.empresa_id, b.dataset.tipo, b.dataset.valor); await catalogosCfg(container, perfil); }
-    catch (err) { alert(err.message || "Error"); }
+    catch (err) { toast(err.message || "Error", "error"); }
   }));
   const agregar = async (tipo, input) => {
     const v = input.value.trim();
     if (!v) return;
     try { await catalogos.asegurar(perfil.empresa_id, tipo, v); await catalogosCfg(container, perfil); }
-    catch (err) { alert(err.message || "Error"); }
+    catch (err) { toast(err.message || "Error", "error"); }
   };
   container.querySelectorAll(".cat-add-btn").forEach((b) => b.addEventListener("click", () => {
     agregar(b.dataset.tipo, container.querySelector(`.cat-add[data-tipo="${b.dataset.tipo}"]`));

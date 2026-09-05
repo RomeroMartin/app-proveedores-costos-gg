@@ -114,6 +114,16 @@ export async function actualizarCosto(empresaId, id, nuevoCostoCentavos, meta = 
   return variacion;
 }
 
+/** Edita metadatos que NO tocan el precio (no escribe historial). */
+export async function actualizarMeta(id, datos) {
+  const permitidos = ["nombre", "rubro", "alicuota_iva", "factor_correccion", "proveedor_habitual_id"];
+  const payload = {};
+  for (const k of permitidos) if (k in datos) payload[k] = datos[k];
+  payload.modificado_en = new Date().toISOString();
+  const { error } = await supabase.from("insumos").update(payload).eq("id", id);
+  if (error) throw error;
+}
+
 /** Baja lógica. */
 export async function desactivar(id) {
   const { error } = await supabase.from("insumos").update({ activo: false }).eq("id", id);

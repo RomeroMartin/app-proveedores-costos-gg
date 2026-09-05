@@ -9,7 +9,7 @@ import * as pagosRepo from "../data/pagosRepo.js";
 import * as facturasRepo from "../data/facturasRepo.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
 import { pesosACentavos, formatearCentavos } from "../../core/dinero.js";
-import { escapar, setMsg, labelInfo } from "./helpers.js";
+import { escapar, setMsg, labelInfo, toast, confirmar } from "./helpers.js";
 
 let PROVEEDORES = [];
 let provSel = null;
@@ -175,14 +175,16 @@ async function registrar(e, container) {
 }
 
 async function anular(container, pagoId) {
-  if (!confirm("¿Anular este pago? Se revierten las imputaciones y el saldo.")) return;
+  const ok = await confirmar({ titulo: "Anular pago", mensaje: "Se revierten las imputaciones y el saldo. El pago queda anulado (no se borra).", textoOk: "Anular", peligro: true });
+  if (!ok) return;
   try {
     const pagos = await pagosRepo.listarPorProveedor(provSel.id);
     const p = pagos.find((x) => x.id === pagoId);
     await pagosRepo.anular(pagoId);
     if (p) provSel.saldo_total_deuda_centavos = (provSel.saldo_total_deuda_centavos || 0) + (p.monto_pagado_centavos || 0);
     await seleccionar(container, provSel.id);
+    toast("Pago anulado ✔");
   } catch (err) {
-    alert("Error: " + (err.message || err));
+    toast("Error: " + (err.message || err), "error");
   }
 }

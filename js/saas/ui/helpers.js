@@ -71,3 +71,43 @@ export function cerrarModal() {
   const m = document.getElementById("modal-ov");
   if (m) m.remove();
 }
+
+/** Aviso flotante no bloqueante. tipo: 'info' | 'ok' | 'error'. */
+export function toast(mensaje, tipo = "ok", ms = 3200) {
+  let cont = document.getElementById("toast-cont");
+  if (!cont) {
+    cont = document.createElement("div");
+    cont.id = "toast-cont";
+    document.body.appendChild(cont);
+  }
+  const t = document.createElement("div");
+  t.className = "toast toast-" + tipo;
+  t.textContent = mensaje;
+  cont.appendChild(t);
+  requestAnimationFrame(() => t.classList.add("visible"));
+  setTimeout(() => {
+    t.classList.remove("visible");
+    setTimeout(() => t.remove(), 250);
+  }, ms);
+}
+
+/**
+ * Confirmación linda (modal). Devuelve Promise<boolean>.
+ * @param {object} o { titulo, mensaje, textoOk, peligro }
+ */
+export function confirmar({ titulo = "Confirmar", mensaje = "", textoOk = "Aceptar", peligro = false } = {}) {
+  return new Promise((resolve) => {
+    const body = abrirModal(titulo);
+    body.innerHTML = `
+      <p style="margin:0 0 16px;">${escapar(mensaje)}</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" class="secundario" id="cf-no">Cancelar</button>
+        <button type="button" id="cf-si"${peligro ? ' style="background:var(--error);"' : ""}>${escapar(textoOk)}</button>
+      </div>`;
+    const cerrar = (val) => { cerrarModal(); resolve(val); };
+    body.querySelector("#cf-no").addEventListener("click", () => cerrar(false));
+    body.querySelector("#cf-si").addEventListener("click", () => cerrar(true));
+    const ov = document.getElementById("modal-ov");
+    if (ov) ov.addEventListener("click", (e) => { if (e.target === ov) cerrar(false); });
+  });
+}
