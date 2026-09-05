@@ -1,67 +1,75 @@
-# Green Garden — Costos, Proveedores y Rentabilidad
+# SaaS Gastronómico — Back-office de compras, costos y rentabilidad
 
-Aplicación web (100 % frontend + Firebase) para la gestión gastronómica de
-**Green Garden**: control de costos de materia prima, cuentas corrientes de
-proveedores y análisis de rentabilidad por plato (escandallos).
+Aplicación web **100 % frontend** (HTML + CSS + JavaScript vanilla, módulos ES)
+sobre **Supabase** (PostgreSQL + Auth + RLS). Es un **SaaS multi-empresa** de
+gestión administrativa para gastronomía: proveedores y cuentas por pagar,
+insumos y costos técnicos, recetas y rentabilidad, agenda de pagos y tablero.
 
-> App **informativa de gestión**. No mueve dinero real ni emite comprobantes
-> fiscales. Green Garden opera como **Responsable Inscripto**, lo que
-> determina toda la lógica de costeo (crédito fiscal).
-
-La especificación funcional completa está en [`docs/especificacion-v2.md`](docs/especificacion-v2.md).
+> Es una app **informativa de gestión**: no mueve dinero real ni emite
+> comprobantes fiscales.
 
 ---
 
-## Reglas de Oro (resumen)
+## Módulos
 
-Estas reglas viven en `js/core/` y están cubiertas por tests:
-
-1. **Toda magnitud física se guarda en unidad base** (`g` / `ml` / `un`). — `core/unidades.js`
-2. **El escandallo vive 100 % en NETO.** El IVA de compras A/RI es crédito
-   fiscal recuperable; en Factura C (monotributo) el IVA sí es costo. — `core/fiscal.js`, `core/costeo.js`
-3. **El dinero se almacena como entero en centavos.** — `core/dinero.js`
-4. **Los movimientos contables no se editan: se anulan** por contraasiento. — `data/pagosRepo.js`
-5. **Toda operación multi-documento va en transacción** con `increment()` atómico. — `data/pagosRepo.js`, `data/facturasRepo.js`
-6. **Las Firestore Rules son el backend.** — `firestore.rules`
-7. **Nada se borra físicamente** (soft delete `activo: false`).
+- **Inicio · Tablero** — resumen: deuda, vencimientos, flujo de caja, peores food cost, alertas.
+- **Compras · Proveedores** — padrón con KPIs, filtros, ficha de cuenta corriente y export a Excel.
+- **Compras · Facturas** — carga con desglose neto/IVA/percepciones (cálculo bidireccional).
+- **Compras · Pagos** — imputación FIFO/manual y anulación por contraasiento.
+- **Caja · Agenda de pagos** — planificación del flujo de caja (efectivo vs. en cuenta).
+- **Costos · Insumos** — unidad base normalizada, factor de corrección, historial de precios.
+- **Rentabilidad · Recetas y costos** — recetas y sub-recetas, food cost %, margen y precio sugerido.
 
 ---
 
-## Estructura
+## Arquitectura
 
 ```
-├── index.html            ← login
-├── app.html              ← app protegida (SPA con router por hash)
-├── firebase.json / .firebaserc / firestore.rules
-├── css/                  ← variables · base · componentes · print
+├── index.html               ← app (SPA con menú lateral)
 ├── js/
-│   ├── app.js            ← bootstrap y router
-│   ├── auth.js · version.js · store.js
-│   ├── config/firebase.js
-│   ├── core/             ← dinero · unidades · fiscal · costeo  (lógica pura, testeable)
-│   ├── data/             ← *Repo.js (Firestore; transacciones + increment)
-│   ├── ui/               ← dashboard · proveedores · insumos · escandallos(=Costos) · usuarios · helpers
-│   └── export/excel.js   ← SheetJS
-└── test/                 ← tests del núcleo (node --test)
+│   ├── config/supabase.js    ← cliente Supabase (URL + publishable key)
+│   ├── core/                 ← lógica pura y testeable (no conoce la DB ni el DOM)
+│   │   ├── dinero.js · unidades.js · fiscal.js · costeo.js · rubros.js
+│   ├── saas/
+│   │   ├── auth.js           ← login / sesión / perfil
+│   │   ├── data/             ← repos Supabase (uno por tabla) + RPC
+│   │   └── ui/               ← una pantalla por módulo + shell + helpers
+│   └── export/excel.js       ← exportación a .xlsx (SheetJS)
+├── supabase/                 ← scripts SQL (esquema, funciones, tablas, bootstrap)
+└── test/                     ← tests del núcleo (node --test)
 ```
 
-Separación de responsabilidades: `/core` no conoce Firebase, `/data` no conoce
-el DOM, `/ui` no calcula.
+**Separación de responsabilidades:** `core/` no conoce Supabase ni el DOM;
+`data/` no conoce el DOM; `ui/` no calcula. La integridad de saldos vive en
+**funciones RPC** de la base (no se puede escribir un saldo desde el cliente),
+y el aislamiento entre empresas lo garantiza **Row Level Security (RLS)**.
+
+---
+
+## Reglas de negocio (núcleo)
+
+1. Toda magnitud física se guarda en **unidad base** (`g`/`ml`/`un`).
+2. El dinero se guarda como **entero en centavos** (`BIGINT`).
+3. Los movimientos contables **no se editan: se anulan** (contraasiento).
+4. Operaciones multi-tabla en **transacción** (RPC en PostgreSQL).
+5. **Nada se borra físicamente** (soft delete `activo`).
 
 ---
 
 ## Puesta en marcha
 
-### 1. Configurar Firebase (una sola vez)
+### 1. Crear el proyecto Supabase (una vez)
 
-Esta app usa su **propio** proyecto Firebase (distinto del inventario de Green Garden).
+Ver el paso a paso en [`docs/plan-migracion-supabase.md`](docs/plan-migracion-supabase.md).
+En resumen:
 
-1. En la [consola de Firebase](https://console.firebase.google.com), creá un
-   proyecto nuevo (ej. `green-garden-costos`) y una **Web App**.
-2. Habilitá **Authentication** (Email/Password), **Firestore** y **Hosting**.
-3. Pegá el `firebaseConfig` que te da la consola en `js/config/firebase.js`.
-4. Poné el project ID en `.firebaserc`.
-5. Creá al menos un usuario en Authentication para poder ingresar.
+1. Crear proyecto en [supabase.com](https://supabase.com) (plan Free).
+2. **Authentication → Providers**: habilitar Email.
+3. **SQL Editor**: ejecutar en orden los scripts de `supabase/`:
+   `schema.sql` → `functions.sql` → `catalogos.sql` → `pagos_programados.sql`.
+4. Crear el primer usuario (Authentication → Users) y correr `bootstrap.sql`
+   (con tu email y el nombre de tu empresa) para quedar como ADMIN.
+5. Pegar **Project URL** y **publishable key** en `js/config/supabase.js`.
 
 ### 2. Correr los tests del núcleo
 
@@ -77,38 +85,17 @@ Al usar módulos ES nativos, servila por HTTP (no `file://`):
 npx serve .        # o: python3 -m http.server 8080
 ```
 
-Abrí `http://localhost:8080/`.
+Abrí `http://localhost:8080/` (o `index.html` con Live Server).
 
 ### 4. Desplegar
 
-```bash
-firebase deploy --only hosting,firestore:rules
-```
-
-En Windows, ver el método probado en la Sección 11 de la especificación.
+Es un sitio estático: se publica en Cloudflare Pages, Netlify, Vercel o
+GitHub Pages. Recordá agregar la URL pública en Supabase →
+**Authentication → URL Configuration**.
 
 ---
 
 ## Roles
 
-- **Gerente:** acceso total (Costos/rentabilidad, precios de venta, anulación de pagos, gestión de usuarios, exportación).
-- **Cargador:** carga operativa (Insumos y actualización de precios, Proveedores, facturas y pagos). No ve rentabilidad ni gestiona usuarios.
-
-Los perfiles viven en la colección `usuarios/{uid}`. Un usuario sin perfil se
-trata como Gerente (bootstrap del dueño); desde la pantalla **Usuarios** el
-Gerente crea los perfiles del resto con su rol.
-
-## Estado
-
-`v0.5.2` — Núcleo · Insumos (historial de precios, gráfico y alertas) · Costos
-(recetas con búsqueda y orden, sector de venta y rentabilidad por sector) ·
-Proveedores (tabla con columna de rubro, filtros y botón de limpiar) ·
-Facturas/Pagos · Usuarios y roles · Export.
-
-> El **Tablero** se eliminó en v0.5.0: sus KPI se repartieron en cada tag
-> (Proveedores: deuda y vencimientos; Costos: rentabilidad; Insumos: precios).
-> La pantalla **Proveedores** replica el cuadro que administración lleva en
-> Excel: agrupado por **rubro principal** → proveedor → deuda, con filtros por
-> rubro, deuda y nombre, y una ficha por proveedor con facturas y pagos
-> (facturado vs pagado). Cada proveedor tiene un rubro principal (con el que se
-> agrupa y se registra la deuda) y, opcionalmente, rubros secundarios.
+`ADMIN`, `GERENTE`, `COCINA`, `AUDITOR` (en la tabla `usuarios`). El gating de
+la UI es de conveniencia; la barrera real son las políticas RLS.

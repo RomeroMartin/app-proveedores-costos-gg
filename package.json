@@ -2,7 +2,7 @@
   "name": "app-proveedores-costos-gg",
   "private": true,
   "type": "module",
-  "description": "Control de costos, cuentas corrientes de proveedores y rentabilidad gastronómica (Green Garden). Web app Firebase.",
+  "description": "SaaS gastronómico multi-empresa: compras, costos y rentabilidad. Frontend vanilla + Supabase (PostgreSQL/RLS).",
   "scripts": {
     "test": "node --test test/*.test.js"
   }
