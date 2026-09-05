@@ -163,6 +163,14 @@
       #app.sidebar-abierta .sidebar { transform: translateX(0); }
       #app.sidebar-abierta #overlay { display: block; }
     }
+
+    /* Impresión: solo el contenido (Carta, fichas). Oculta menú y controles. */
+    @media print {
+      .sidebar, .topbar-mobile, .no-print, button { display: none !important; }
+      .contenido, .main-inner { max-width: none; margin: 0; padding: 0; }
+      .card { border: 0; padding: 6px 0; margin: 0; break-inside: avoid; }
+      body { background: #fff; }
+    }
   </style>
 </head>
 <body>

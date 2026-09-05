@@ -119,3 +119,26 @@ export async function desactivar(id) {
   const { error } = await supabase.from("insumos").update({ activo: false }).eq("id", id);
   if (error) throw error;
 }
+
+/** Historial de precios de un insumo (cronológico). */
+export async function historial(insumoId) {
+  const { data, error } = await supabase
+    .from("historial_precios_insumo")
+    .select("*")
+    .eq("insumo_id", insumoId)
+    .order("fecha", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+/** Últimos cambios de precio de la empresa (para el resumen de Costos). */
+export async function ultimosCambios(limite = 8) {
+  const { data, error } = await supabase
+    .from("historial_precios_insumo")
+    .select("*")
+    .neq("origen", "carga_inicial")
+    .order("fecha", { ascending: false })
+    .limit(limite);
+  if (error) throw error;
+  return data || [];
+}
