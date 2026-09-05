@@ -5,6 +5,7 @@
 
 import * as insumosRepo from "../data/insumosRepo.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
+import * as recetasRepo from "../data/recetasRepo.js";
 import * as catalogos from "../data/catalogosRepo.js";
 import { MAGNITUDES, UNIDADES_POR_MAGNITUD, unidadBaseDe, convertirAUnidadBase, costoNetoPorUnidadBase } from "../../core/unidades.js";
 import { ALICUOTAS_IVA } from "../../core/fiscal.js";
@@ -217,8 +218,9 @@ function modalPrecio(insumo) {
     setMsg(body.querySelector("#ip-msg"), "Guardando…");
     try {
       await insumosRepo.actualizarCosto(PERFIL.empresa_id, insumo.id, nb, { origen: "manual" });
+      let n = 0; try { n = await recetasRepo.recalcularTodas(); } catch (_e) {}
       cerrarModal();
-      toast("Precio actualizado ✔ (recalculá recetas si hace falta)");
+      toast(`Precio actualizado ✔ · ${n} receta(s) recalculada(s)`);
       await refrescar(CONT);
     } catch (err) { setMsg(body.querySelector("#ip-msg"), "No se pudo guardar: " + (err.message || err), "error"); }
   });
@@ -302,8 +304,9 @@ function modalEditar(insumo) {
         factor_correccion: Number(body.querySelector("#ie-factor").value) || 1,
         proveedor_habitual_id: body.querySelector("#ie-prov").value || null,
       });
+      let n = 0; try { n = await recetasRepo.recalcularTodas(); } catch (_e) {}
       cerrarModal();
-      toast("Insumo actualizado ✔");
+      toast(n ? `Insumo actualizado ✔ · ${n} receta(s) recalculada(s)` : "Insumo actualizado ✔");
       await refrescar(CONT);
     } catch (err) { setMsg(msg, "No se pudo guardar: " + (err.message || err), "error"); }
   });
