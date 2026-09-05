@@ -146,8 +146,12 @@ function construirMenu() {
       `<span class="menu-ico">${grupo.icono}</span>
        <span class="menu-titulo">${grupo.titulo}</span>
        <span class="menu-chevron">${ICONOS.chevron}</span>`;
-    // Clic en el módulo: abre su primer submódulo (Resumen) y despliega el grupo.
-    header.addEventListener("click", () => irA(grupo.items[0].clave));
+    // Clic en el módulo: si está abierto lo cierra; si está cerrado lo abre
+    // y muestra su Resumen (primer submódulo).
+    header.addEventListener("click", () => {
+      if (sec.classList.contains("abierto")) sec.classList.remove("abierto");
+      else irA(grupo.items[0].clave);
+    });
     sec.appendChild(header);
 
     const ul = document.createElement("div");
