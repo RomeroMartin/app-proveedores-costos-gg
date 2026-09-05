@@ -7,12 +7,17 @@
 
 import * as facturasRepo from "../data/facturasRepo.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
+import * as insumosRepo from "../data/insumosRepo.js";
+import * as recetasRepo from "../data/recetasRepo.js";
 import { ALICUOTAS_IVA, desglosarFactura } from "../../core/fiscal.js";
-import { pesosACentavos, formatearCentavos } from "../../core/dinero.js";
-import { escapar, setMsg, labelInfo } from "./helpers.js";
+import { UNIDADES_POR_MAGNITUD, convertirAUnidadBase, costoNetoPorUnidadBase } from "../../core/unidades.js";
+import { pesosACentavos, formatearCentavos, formatearPorcentaje } from "../../core/dinero.js";
+import { escapar, setMsg, labelInfo, iconoInfo, toast } from "./helpers.js";
 
 let PERFIL = null;
 let PROVEEDORES = [];
+let INSUMOS = [];
+let insMap = {};
 let provSel = null;
 let ladoEditado = "total"; // "neto" | "total"
 
@@ -30,7 +35,8 @@ export async function montar(container, perfil) {
     <div id="fac-detalle"></div>`;
 
   try {
-    PROVEEDORES = await proveedoresRepo.listar();
+    [PROVEEDORES, INSUMOS] = await Promise.all([proveedoresRepo.listar(), insumosRepo.listar()]);
+    insMap = Object.fromEntries(INSUMOS.map((i) => [i.id, i]));
   } catch (err) {
     $(container, "#fac-detalle").innerHTML = `<p class="error">Error: ${escapar(err.message || String(err))}</p>`;
     return;
@@ -97,6 +103,12 @@ function formNuevaFactura() {
         <div style="margin-top:8px;">${labelInfo("fac-obs", "Observaciones", "Nota libre (opcional).")}
           <input id="fac-obs" placeholder="Opcional" /></div>
 
+        <h3 class="muted" style="margin:18px 0 4px;">Actualizar costos de insumos de esta compra
+          ${iconoInfo("Opcional. Por cada insumo comprado, cargá cuánto y a qué precio: se actualiza su costo (queda en el historial) y se recalculan las recetas.")}</h3>
+        <div id="fac-items"></div>
+        <button type="button" id="fac-add-item" class="secundario" style="margin-top:8px;"${INSUMOS.length ? "" : " disabled"}>+ Agregar insumo</button>
+        ${INSUMOS.length ? "" : `<p class="muted" style="font-size:12px;">Cargá insumos primero para poder actualizarlos desde acá.</p>`}
+
         <div style="margin-top:16px;"><button type="submit">Guardar factura</button></div>
         <p id="fac-msg" class="msg" hidden></p>
       </form>
@@ -110,7 +122,56 @@ function wireForm(container) {
   total.addEventListener("input", () => { ladoEditado = "total"; recomputar(container); });
   $(container, "#fac-alicuota").addEventListener("change", () => recomputar(container));
   $(container, "#fac-percep").addEventListener("input", () => recomputar(container));
+  const addBtn = $(container, "#fac-add-item");
+  if (addBtn) addBtn.addEventListener("click", () => $(container, "#fac-items").appendChild(filaItem()));
   $(container, "#form-factura").addEventListener("submit", (e) => guardar(e, container));
+}
+
+/** Fila para actualizar el costo de un insumo comprado. */
+function filaItem() {
+  const row = document.createElement("div");
+  row.className = "fila fac-item";
+  row.style.marginBottom = "8px";
+  row.innerHTML = `
+    <div style="flex:2;"><select class="it-insumo"><option value="">— insumo —</option>${INSUMOS.map((i) => `<option value="${i.id}">${escapar(i.nombre)}</option>`).join("")}</select></div>
+    <div style="flex:0 0 90px;"><input class="it-cant" type="number" step="0.0001" placeholder="cant." /></div>
+    <div style="flex:0 0 90px;"><select class="it-unidad"></select></div>
+    <div style="flex:0 0 120px;"><input class="it-precio" placeholder="precio neto $" /></div>
+    <div style="flex:1;text-align:right;" class="muted it-calc"></div>
+    <div style="flex:0 0 32px;"><button type="button" class="btn-baja it-del">✕</button></div>`;
+
+  const insSel = row.querySelector(".it-insumo");
+  const uniSel = row.querySelector(".it-unidad");
+  const poblarUni = () => {
+    const ins = insMap[insSel.value];
+    uniSel.innerHTML = ins ? (UNIDADES_POR_MAGNITUD[ins.magnitud] || []).map((u) => `<option value="${u}">${u}</option>`).join("") : "";
+    calcular();
+  };
+  const calcular = () => {
+    const ins = insMap[insSel.value];
+    const el = row.querySelector(".it-calc");
+    const nb = costoItem(row);
+    if (!ins || nb == null) { el.textContent = ""; return; }
+    const actual = ins.costo_neto_por_unidad_base_centavos || 0;
+    const vari = actual > 0 ? ((nb - actual) / actual) * 100 : 0;
+    el.innerHTML = `→ ${formatearCentavos(nb)}/${escapar(ins.unidad_base)} <span style="color:${vari > 0 ? "var(--error)" : vari < 0 ? "var(--ok)" : "var(--muted)"}">(${vari > 0 ? "+" : ""}${escapar(formatearPorcentaje(vari))})</span>`;
+  };
+  insSel.addEventListener("change", poblarUni);
+  uniSel.addEventListener("change", calcular);
+  row.querySelector(".it-cant").addEventListener("input", calcular);
+  row.querySelector(".it-precio").addEventListener("input", calcular);
+  row.querySelector(".it-del").addEventListener("click", () => row.remove());
+  return row;
+}
+
+/** Costo por unidad base derivado de una fila (o null si falta dato). */
+function costoItem(row) {
+  const ins = insMap[row.querySelector(".it-insumo").value];
+  const cant = Number(row.querySelector(".it-cant").value);
+  const unidad = row.querySelector(".it-unidad").value;
+  const precio = pesosACentavos(row.querySelector(".it-precio").value);
+  if (!ins || !cant || cant <= 0 || !unidad || precio <= 0) return null;
+  return costoNetoPorUnidadBase(precio, convertirAUnidadBase(cant, unidad));
 }
 
 function desgloseActual(container) {
@@ -165,9 +226,15 @@ async function guardar(e, container) {
   const d = desgloseActual(container);
   if (d.total <= 0) { setMsg(msg, "Cargá el importe de la factura.", "error"); return; }
 
+  // Recolectar actualizaciones de costo de insumos (filas válidas).
+  const items = [...container.querySelectorAll(".fac-item")].map((row) => ({
+    insumoId: row.querySelector(".it-insumo").value,
+    costo: costoItem(row),
+  })).filter((x) => x.insumoId && x.costo != null);
+
   setMsg(msg, "Guardando…");
   try {
-    await facturasRepo.crear({
+    const facturaId = await facturasRepo.crear({
       proveedor_id: provSel.id,
       tipo_comprobante: $(container, "#fac-tipo").value,
       numero_factura: $(container, "#fac-numero").value,
@@ -179,9 +246,22 @@ async function guardar(e, container) {
       monto_total_centavos: d.total,
       observaciones: $(container, "#fac-obs").value,
     });
-    // Actualizar saldo en memoria + refrescar.
     provSel.saldo_total_deuda_centavos = (provSel.saldo_total_deuda_centavos || 0) + d.total;
-    setMsg(msg, "Factura guardada ✔", "ok");
+
+    // Actualizar costos de insumos + recalcular recetas.
+    let recetasActualizadas = 0;
+    if (items.length) {
+      for (const it of items) {
+        await insumosRepo.actualizarCosto(PERFIL.empresa_id, it.insumoId, it.costo, { origen: "factura", factura_id: facturaId });
+      }
+      try { recetasActualizadas = await recetasRepo.recalcularTodas(); } catch (_e) {}
+      // Refrescar insumos en memoria para próximos cálculos.
+      try { INSUMOS = await insumosRepo.listar(); insMap = Object.fromEntries(INSUMOS.map((i) => [i.id, i])); } catch (_e) {}
+    }
+
+    toast(items.length
+      ? `Factura guardada ✔ · ${items.length} insumo(s) actualizado(s) · ${recetasActualizadas} receta(s) recalculada(s)`
+      : "Factura guardada ✔", "ok", 5000);
     await seleccionar(container, provSel.id);
   } catch (err) {
     setMsg(msg, "No se pudo guardar: " + (err.message || err), "error");

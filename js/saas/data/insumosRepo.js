@@ -108,6 +108,7 @@ export async function actualizarCosto(empresaId, id, nuevoCostoCentavos, meta = 
     costo_nuevo_centavos: nuevoCostoCentavos,
     variacion_porcentual: Number(variacion.toFixed(2)),
     origen: meta.origen || "manual",
+    factura_id: meta.factura_id || null,
     usuario,
   });
 

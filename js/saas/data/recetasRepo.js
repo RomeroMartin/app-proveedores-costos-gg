@@ -8,6 +8,8 @@
 // ============================================================
 
 import { supabase } from "../../config/supabase.js";
+import * as insumosRepo from "./insumosRepo.js";
+import { costoReceta } from "../../core/costeo.js";
 
 /** Genera el próximo código legible tipo "REC-001". */
 function siguienteCodigo(prefijo, existentes) {
@@ -131,6 +133,26 @@ export async function guardarCosto(id, costoCalculadoCentavos) {
     .update({ costo_calculado_centavos: Math.round(costoCalculadoCentavos) || 0, fecha_calculo: new Date().toISOString() })
     .eq("id", id);
   if (error) throw error;
+}
+
+/**
+ * Recalcula el costo (snapshot) de TODAS las recetas de la empresa y persiste
+ * las que cambiaron. Se usa tras actualizar precios de insumos.
+ * @returns {number} cantidad de recetas actualizadas
+ */
+export async function recalcularTodas() {
+  const [recetas, insumos] = await Promise.all([listar(), insumosRepo.listar()]);
+  const insMap = Object.fromEntries(insumos.map((i) => [i.id, i]));
+  const recMap = Object.fromEntries(recetas.map((r) => [r.id, r]));
+  const ctx = { getInsumo: (id) => insMap[id] || null, getReceta: (id) => recMap[id] || null };
+  let n = 0;
+  for (const r of recetas) {
+    try {
+      const costo = Math.round(costoReceta(r, ctx));
+      if (costo !== (Number(r.costo_calculado_centavos) || 0)) { await guardarCosto(r.id, costo); n++; }
+    } catch (_e) { /* ciclo/insumo faltante: se omite */ }
+  }
+  return n;
 }
 
 /** Baja lógica. */
