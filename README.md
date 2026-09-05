@@ -10,6 +10,8 @@ insumos y costos técnicos, recetas y rentabilidad, agenda de pagos y tablero.
 
 ---
 
+> 📖 **Manual de uso** (cómo operar cada pantalla): [`docs/manual.md`](docs/manual.md).
+
 ## Módulos
 
 - **Inicio · Tablero** — resumen: deuda, vencimientos, flujo de caja, peores food cost, alertas.
