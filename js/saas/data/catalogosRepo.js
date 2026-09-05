@@ -10,10 +10,21 @@ import { supabase } from "../../config/supabase.js";
 import { RUBROS } from "../../core/rubros.js";
 
 /** Opciones por defecto por tipo (siempre presentes). */
-const DEFAULTS = {
+export const DEFAULTS = {
   rubro: RUBROS,
   sector: ["Cocina", "Parrilla", "Barra", "Fríos", "Pastelería", "Cafetería"],
   unidad_rendimiento: ["un", "porción", "ml", "l", "g", "kg", "docena"],
+  cat_ingreso: ["Ventas", "Ventas tarjeta", "Ventas QR", "Otros ingresos"],
+  cat_egreso: ["Pago a proveedor", "Sueldos", "Servicios", "Mantenimiento", "Impuestos", "Retiro", "Otros gastos"],
+};
+
+/** Etiquetas amigables de los tipos de catálogo (para la pantalla de Configuración). */
+export const TIPOS_CATALOGO = {
+  rubro: "Rubros",
+  sector: "Sectores",
+  unidad_rendimiento: "Unidades de rendimiento",
+  cat_ingreso: "Categorías de ingreso (caja)",
+  cat_egreso: "Categorías de egreso (caja)",
 };
 
 let CACHE = {}; // { tipo: Set<valor> } — valores agregados por el usuario
@@ -53,4 +64,18 @@ export async function asegurar(empresaId, tipo, valor) {
   } catch (_e) {
     // Ignorar (tabla inexistente o duplicado): la opción igual queda en memoria.
   }
+}
+
+/** Opciones agregadas por el usuario (sin los defaults), para gestionarlas. */
+export function agregadas(tipo) {
+  return [...(CACHE[tipo] || [])].sort((a, b) => a.localeCompare(b, "es"));
+}
+
+/** Elimina una opción agregada (los defaults no se pueden borrar). */
+export async function eliminar(empresaId, tipo, valor) {
+  const v = (valor || "").trim();
+  if (CACHE[tipo]) CACHE[tipo].delete(v);
+  const { error } = await supabase.from("catalogos")
+    .delete().eq("empresa_id", empresaId).eq("tipo", tipo).eq("valor", v);
+  if (error) throw error;
 }
