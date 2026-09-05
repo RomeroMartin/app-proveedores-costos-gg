@@ -9,7 +9,7 @@
 import * as agendaRepo from "../data/pagosProgramadosRepo.js";
 import * as proveedoresRepo from "../data/proveedoresRepo.js";
 import { pesosACentavos, formatearCentavos } from "../../core/dinero.js";
-import { escapar, setMsg, labelInfo, kpiHTML } from "./helpers.js";
+import { escapar, setMsg, labelInfo, kpiHTML, toast, confirmar } from "./helpers.js";
 
 const LABEL_METODO = { efectivo: "Efectivo", transferencia: "Transferencia", cheque: "Cheque", echeq: "e-Cheq", otro: "Otro" };
 
@@ -204,8 +204,10 @@ async function agendar(e, container) {
 }
 
 async function cambiarEstado(container, id, estado) {
-  const txt = estado === "pagado" ? "¿Marcar este pago como realizado?" : "¿Quitar este pago de la agenda?";
-  if (!confirm(txt)) return;
-  try { await agendaRepo.actualizarEstado(id, estado); await cargar(container); }
-  catch (err) { alert("Error: " + (err.message || err)); }
+  const ok = await confirmar(estado === "pagado"
+    ? { titulo: "Marcar pagado", mensaje: "¿Marcar este pago como realizado?", textoOk: "Marcar pagado" }
+    : { titulo: "Quitar de la agenda", mensaje: "¿Quitar este pago de la agenda?", textoOk: "Quitar", peligro: true });
+  if (!ok) return;
+  try { await agendaRepo.actualizarEstado(id, estado); await cargar(container); toast(estado === "pagado" ? "Marcado como pagado ✔" : "Quitado de la agenda"); }
+  catch (err) { toast("Error: " + (err.message || err), "error"); }
 }

@@ -7,7 +7,7 @@ import * as insumosRepo from "../data/insumosRepo.js";
 import { costoReceta, rentabilidad } from "../../core/costeo.js";
 import { formatearCentavos, formatearPorcentaje } from "../../core/dinero.js";
 import { exportarExcel } from "../../export/excel.js";
-import { escapar } from "./helpers.js";
+import { escapar, toast } from "./helpers.js";
 
 const SIN_SECTOR = "Sin sector";
 
@@ -72,5 +72,5 @@ function exportar(platos) {
     }));
     filas.sort((a, b) => a.Sector.localeCompare(b.Sector) || a.Plato.localeCompare(b.Plato));
     exportarExcel(filas, "carta", "Carta");
-  } catch (e) { alert(e.message || "No se pudo exportar."); }
+  } catch (e) { toast(e.message || "No se pudo exportar.", "error"); }
 }

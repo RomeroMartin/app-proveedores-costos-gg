@@ -11,7 +11,7 @@ import * as catalogos from "../data/catalogosRepo.js";
 import { CONDICIONES_FISCALES, ALICUOTAS_IVA, desglosarFactura } from "../../core/fiscal.js";
 import { pesosACentavos, formatearCentavos } from "../../core/dinero.js";
 import { exportarExcel } from "../../export/excel.js";
-import { escapar, setMsg, labelInfo, datalist, kpiHTML, abrirModal, cerrarModal } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist, kpiHTML, abrirModal, cerrarModal, toast, confirmar } from "./helpers.js";
 
 const LABEL_COND = { responsable_inscripto: "Resp. Inscripto", monotributo: "Monotributo", exento: "Exento" };
 const LABEL_METODO = { efectivo: "Efectivo", transferencia: "Transferencia", cheque: "Cheque", echeq: "e-Cheq", otro: "Otro" };
@@ -166,7 +166,7 @@ function exportar() {
     }));
     filas.sort((a, b) => (a.Rubro || "~").localeCompare(b.Rubro || "~") || b["Saldo deuda ($)"] - a["Saldo deuda ($)"]);
     exportarExcel(filas, "deuda-proveedores", "Deuda");
-  } catch (e) { alert(e.message || "No se pudo exportar."); }
+  } catch (e) { toast(e.message || "No se pudo exportar.", "error"); }
 }
 
 // ---------- alta / edición ----------
@@ -340,9 +340,9 @@ async function reabrirFicha(id) {
 }
 
 async function anularPago(pagoId, provId) {
-  if (!confirm("¿Anular este pago? Se revierten las imputaciones y el saldo.")) return;
-  try { await pagosRepo.anular(pagoId); await reabrirFicha(provId); }
-  catch (err) { alert("Error: " + (err.message || err)); }
+  if (!(await confirmar({ titulo: "Anular pago", mensaje: "Se revierten las imputaciones y el saldo. El pago queda anulado (no se borra).", textoOk: "Anular", peligro: true }))) return;
+  try { await pagosRepo.anular(pagoId); await reabrirFicha(provId); toast("Pago anulado ✔"); }
+  catch (err) { toast("Error: " + (err.message || err), "error"); }
 }
 
 // ---------- modal: cargar factura ----------
@@ -455,7 +455,9 @@ function modalPago(prov, pendientes, onDone) {
       });
       cerrarModal();
       if (monto > antesSaldo && antesSaldo >= 0) {
-        alert(`Pago registrado. Quedó un excedente de ${formatearCentavos(monto - antesSaldo)} como saldo a favor.`);
+        toast(`Pago registrado. Excedente ${formatearCentavos(monto - antesSaldo)} como saldo a favor.`, "ok", 5000);
+      } else {
+        toast("Pago registrado ✔");
       }
       if (onDone) await onDone();
     } catch (err) { setMsg(msg, "No se pudo registrar: " + (err.message || err), "error"); }

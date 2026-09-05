@@ -5,7 +5,7 @@
 import * as cajaRepo from "../data/movimientosCajaRepo.js";
 import * as catalogos from "../data/catalogosRepo.js";
 import { pesosACentavos, formatearCentavos } from "../../core/dinero.js";
-import { escapar, setMsg, labelInfo, datalist, kpiHTML } from "./helpers.js";
+import { escapar, setMsg, labelInfo, datalist, kpiHTML, toast, confirmar } from "./helpers.js";
 
 const MEDIOS = [["efectivo", "Efectivo"], ["tarjeta", "Tarjeta"], ["qr", "QR"], ["transferencia", "Transferencia"], ["cheque", "Cheque"], ["otro", "Otro"]];
 const labelMedio = (m) => (MEDIOS.find((x) => x[0] === m) || [m, m])[1];
@@ -171,7 +171,7 @@ async function agregar(e, container) {
 }
 
 async function eliminar(container, id) {
-  if (!confirm("¿Eliminar este movimiento?")) return;
-  try { await cajaRepo.eliminar(id); await cargar(container); }
-  catch (err) { alert("Error: " + (err.message || err)); }
+  if (!(await confirmar({ titulo: "Eliminar movimiento", mensaje: "¿Eliminar este movimiento de caja?", textoOk: "Eliminar", peligro: true }))) return;
+  try { await cajaRepo.eliminar(id); await cargar(container); toast("Movimiento eliminado"); }
+  catch (err) { toast("Error: " + (err.message || err), "error"); }
 }
