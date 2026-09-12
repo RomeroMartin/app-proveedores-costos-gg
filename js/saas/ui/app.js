@@ -21,6 +21,9 @@ import * as recetas from "./recetas.js";
 import * as carta from "./carta.js";
 import * as rentabilidad from "./rentabilidad.js";
 import * as config from "./config.js";
+import * as rrhhEmpleados from "./rrhhEmpleados.js";
+import * as rrhhVencimientos from "./rrhhVencimientos.js";
+import * as rrhhConfig from "./rrhhConfig.js";
 
 const $ = (sel) => document.querySelector(sel);
 
@@ -34,6 +37,7 @@ const ICONOS = {
   admin: svg('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>'),
   costos: svg('<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>'),
   carta: svg('<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>'),
+  rrhh: svg('<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'),
   config: svg('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'),
   chevron: svg('<polyline points="9 18 15 12 9 6"/>'),
 };
@@ -69,6 +73,14 @@ const MENU = [
     ],
   },
   {
+    id: "rrhh", titulo: "Recursos Humanos", icono: ICONOS.rrhh, roles: ["ADMIN", "GERENTE"],
+    items: [
+      { clave: "rrhh_empleados", titulo: "Empleados", montar: rrhhEmpleados.montar },
+      { clave: "rrhh_vencimientos", titulo: "Vencimientos", montar: rrhhVencimientos.montar },
+      { clave: "rrhh_config", titulo: "Configuración", montar: rrhhConfig.montar, roles: ["ADMIN"] },
+    ],
+  },
+  {
     id: "config", titulo: "Configuración", icono: ICONOS.config,
     items: [
       { clave: "cfg_empresa", titulo: "Empresa", montar: config.empresa },
@@ -77,6 +89,18 @@ const MENU = [
     ],
   },
 ];
+
+// ¿El rol actual puede ver este grupo/ítem? (roles ausente = todos los roles)
+function permitido(entrada) {
+  return !entrada.roles || (perfil && entrada.roles.includes(perfil.rol));
+}
+// Grupos visibles para el rol actual, con sus ítems ya filtrados.
+function menuVisible() {
+  return MENU
+    .filter(permitido)
+    .map((g) => ({ ...g, items: g.items.filter(permitido) }))
+    .filter((g) => g.items.length);
+}
 
 const ITEMS = Object.fromEntries(MENU.flatMap((g) => g.items.map((it) => [it.clave, it])));
 const CLAVE_INICIAL = "admin_resumen";
@@ -124,7 +148,7 @@ async function entrarApp() {
   construirMenu();
 
   let inicial = CLAVE_INICIAL;
-  try { const g = localStorage.getItem(LS_ULTIMA); if (g && ITEMS[g]) inicial = g; } catch (_e) {}
+  try { const g = localStorage.getItem(LS_ULTIMA); if (g && ITEMS[g] && puedeVerClave(g)) inicial = g; } catch (_e) {}
   await irA(inicial);
 }
 
@@ -132,10 +156,17 @@ function grupoDe(clave) {
   return MENU.find((g) => g.items.some((it) => it.clave === clave));
 }
 
+// ¿El rol actual puede navegar a esta clave? (grupo e ítem permitidos)
+function puedeVerClave(clave) {
+  const g = grupoDe(clave);
+  const it = g && g.items.find((i) => i.clave === clave);
+  return !!(g && it && permitido(g) && permitido(it));
+}
+
 function construirMenu() {
   const nav = $("#menu");
   nav.innerHTML = "";
-  for (const grupo of MENU) {
+  for (const grupo of menuVisible()) {
     const sec = document.createElement("div");
     sec.className = "menu-grupo";
     sec.dataset.grupo = grupo.id;
@@ -172,6 +203,8 @@ function construirMenu() {
 async function irA(clave) {
   const item = ITEMS[clave];
   if (!item) return;
+  // El rol no llega a esta pantalla: caé en la inicial (la RLS igual protege).
+  if (!puedeVerClave(clave)) { await irA(CLAVE_INICIAL); return; }
   try { localStorage.setItem(LS_ULTIMA, clave); } catch (_e) {}
 
   // Abrir el grupo del item activo y marcar el item.
