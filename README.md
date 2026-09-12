@@ -21,6 +21,7 @@ insumos y costos técnicos, recetas y rentabilidad, agenda de pagos y tablero.
 - **Caja · Agenda de pagos** — planificación del flujo de caja (efectivo vs. en cuenta).
 - **Costos · Insumos** — unidad base normalizada, factor de corrección, historial de precios.
 - **Rentabilidad · Recetas y costos** — recetas y sub-recetas, food cost %, margen y precio sugerido.
+- **Recursos Humanos** — empleados, legajo, historial de sueldos, ausencias/vacaciones y documentación con vencimientos. Ver [`docs/modulo-rrhh.md`](docs/modulo-rrhh.md).
 
 ---
 
@@ -69,6 +70,7 @@ En resumen:
 2. **Authentication → Providers**: habilitar Email.
 3. **SQL Editor**: ejecutar en orden los scripts de `supabase/`:
    `schema.sql` → `functions.sql` → `catalogos.sql` → `pagos_programados.sql`.
+   Para el módulo de RRHH, ejecutar además `rrhh.sql` (ver [`docs/modulo-rrhh.md`](docs/modulo-rrhh.md)).
 4. Crear el primer usuario (Authentication → Users) y correr `bootstrap.sql`
    (con tu email y el nombre de tu empresa) para quedar como ADMIN.
 5. Pegar **Project URL** y **publishable key** en `js/config/supabase.js`.
